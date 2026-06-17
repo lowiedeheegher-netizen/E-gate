@@ -50,6 +50,17 @@
   .cover-and-track { grid-template-columns:1fr; }
   .two-col { grid-template-columns:1fr; }
 }
+
+/* Drag & drop custom steps */
+.custom-step-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; cursor:default; }
+.drag-handle {
+  flex-shrink:0; width:20px; cursor:grab; color:var(--text-muted);
+  font-size:14px; text-align:center; user-select:none; padding:2px 0;
+}
+.drag-handle:active { cursor:grabbing; }
+.custom-step-row.drag-over-top    { border-top:2px solid var(--accent) !important; }
+.custom-step-row.drag-over-bottom { border-bottom:2px solid var(--accent) !important; }
+.custom-step-row.dragging { opacity:.4; }
 </style>
 </head>
 <body>
@@ -440,6 +451,49 @@
   // ── Custom steps ───────────────────────────────────────
   var customCount = 0;
 
+  var dragSrc = null;
+
+  function makeDraggable(row) {
+    row.setAttribute('draggable', 'true');
+    row.addEventListener('dragstart', function(e) {
+      dragSrc = row;
+      row.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    row.addEventListener('dragend', function() {
+      row.classList.remove('dragging');
+      document.querySelectorAll('.custom-step-row').forEach(function(r) {
+        r.classList.remove('drag-over-top','drag-over-bottom');
+      });
+      dragSrc = null;
+      updatePreview();
+    });
+    row.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      if (!dragSrc || dragSrc === row) return;
+      var rect = row.getBoundingClientRect();
+      var mid  = rect.top + rect.height / 2;
+      row.classList.toggle('drag-over-top',    e.clientY < mid);
+      row.classList.toggle('drag-over-bottom', e.clientY >= mid);
+    });
+    row.addEventListener('dragleave', function() {
+      row.classList.remove('drag-over-top','drag-over-bottom');
+    });
+    row.addEventListener('drop', function(e) {
+      e.preventDefault();
+      if (!dragSrc || dragSrc === row) return;
+      var rect = row.getBoundingClientRect();
+      var mid  = rect.top + rect.height / 2;
+      var container = document.getElementById('custom-steps-container');
+      if (e.clientY < mid) {
+        container.insertBefore(dragSrc, row);
+      } else {
+        container.insertBefore(dragSrc, row.nextSibling);
+      }
+      row.classList.remove('drag-over-top','drag-over-bottom');
+    });
+  }
+
   function addCustomStep() {
     if (customCount >= 3) return;
     customCount++;
@@ -449,10 +503,12 @@
     row.className = 'custom-step-row';
     row.dataset.idx = idx;
     row.innerHTML =
+      '<div class="drag-handle" title="Sleep om te herordenen">⠇</div>' +
       '<input class="field-input field-input--sm" type="text" placeholder="Label (bv. Subscribe)" data-custom="label-' + idx + '" maxlength="60">' +
       '<input class="field-input field-input--sm" type="url" placeholder="https://..." data-custom="url-' + idx + '">' +
       '<button type="button" class="btn btn--danger btn--sm remove-custom" data-idx="' + idx + '" title="Verwijder">✕</button>';
     container.appendChild(row);
+    makeDraggable(row);
     if (customCount >= 3) {
       document.getElementById('add-custom-btn').style.display = 'none';
       document.getElementById('custom-max-note').style.display = 'block';

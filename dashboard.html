@@ -18,6 +18,21 @@
 .skel-line { height:12px; background:var(--border); border-radius:4px; margin-bottom:10px; }
 .skel-line:last-child { width:60%; }
 @keyframes pulse { from{opacity:.6} to{opacity:1} }
+
+.gate-toggle {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+  border: none; border-radius: 6px; padding: 5px 10px; cursor: pointer;
+  font-family: var(--font-b); transition: opacity .15s, background .2s;
+}
+.gate-toggle.is-active  { background: rgba(74,222,128,.1);  color: var(--green); border: 1px solid rgba(74,222,128,.2); }
+.gate-toggle.is-inactive{ background: rgba(255,59,0,.08);   color: var(--accent);border: 1px solid rgba(255,59,0,.15); }
+.gate-toggle:hover { opacity:.75; }
+.gate-inactive-badge {
+  display:inline-block; font-size:9px; font-weight:700; letter-spacing:2px;
+  text-transform:uppercase; color:var(--accent); background:rgba(255,59,0,.08);
+  border:1px solid rgba(255,59,0,.15); border-radius:4px; padding:2px 7px; margin-left:6px; vertical-align:middle;
+}
 </style>
 </head>
 <body>
@@ -195,6 +210,32 @@
   document.getElementById('gate-grid').addEventListener('click', async function(e) {
     var copyBtn = e.target.closest('.copy-btn');
     if (copyBtn) { copyText(copyBtn.dataset.url); return; }
+
+    // Toggle active/inactive
+    var toggleBtn = e.target.closest('.toggle-btn');
+    if (toggleBtn) {
+      var gateId = toggleBtn.dataset.id;
+      toggleBtn.disabled = true;
+      fetch('/api/gates/' + gateId + '/toggle', {
+        method: 'PATCH',
+        headers: { Authorization: 'Bearer ' + token }
+      }).then(function(r){ return r.json(); }).then(function(d) {
+        var card = document.querySelector('.gate-card[data-id="' + gateId + '"]');
+        if (!card) return;
+        var nowActive = d.is_active;
+        toggleBtn.className = 'gate-toggle ' + (nowActive ? 'is-active' : 'is-inactive') + ' toggle-btn';
+        toggleBtn.textContent = nowActive ? '\u2713 Actief' : '\u2717 Gesloten';
+        var badge = card.querySelector('.gate-inactive-badge');
+        if (!nowActive && !badge) {
+          var nameEl = card.querySelector('.gate-name');
+          if (nameEl) nameEl.insertAdjacentHTML('beforeend','<span class="gate-inactive-badge">Gesloten</span>');
+        } else if (nowActive && badge) { badge.remove(); }
+        card.classList.toggle('gate-card--inactive', !nowActive);
+        showToast(nowActive ? '\u2713 Gate actief' : 'Gate gesloten', nowActive ? 'success' : '');
+      }).catch(function(){ showToast('Kon gate niet wijzigen', 'error'); })
+        .finally(function(){ toggleBtn.disabled = false; });
+      return;
+    }
 
     var delBtn = e.target.closest('.delete-btn');
     if (!delBtn) return;

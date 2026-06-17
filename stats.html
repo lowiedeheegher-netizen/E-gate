@@ -49,6 +49,19 @@ tbody tr:hover { background:rgba(255,255,255,.02); }
 @keyframes pulse { from{opacity:.5} to{opacity:1} }
 .scroll-x { overflow-x:auto; }
 @media(max-width:560px){ .stat-big .v{font-size:30px} th,td{padding:10px 12px} }
+
+/* Timeline chart */
+.timeline-wrap { padding: 20px; }
+.timeline-svg { width:100%; overflow:visible; display:block; }
+.timeline-bar { fill: var(--accent); opacity:.85; transition: opacity .15s; }
+.timeline-bar:hover { opacity:1; }
+.timeline-axis { fill: var(--text-muted); font-size:9px; font-family:monospace; }
+.timeline-tooltip {
+  position:absolute; background:#1a1b20; border:1px solid var(--border);
+  border-radius:6px; padding:6px 10px; font-size:11px; color:var(--chrome);
+  pointer-events:none; opacity:0; transition:opacity .15s;
+  white-space:nowrap; z-index:10;
+}
 </style>
 </head>
 <body>
@@ -78,6 +91,19 @@ tbody tr:hover { background:rgba(255,255,255,.02); }
     <div class="stat-big accent"><div class="v" id="s-downloads">—</div><div class="l">Downloads</div></div>
     <div class="stat-big"><div class="v" id="s-conversion">—</div><div class="l">Conversie</div></div>
     <div class="stat-big"><div class="v" id="s-gates">—</div><div class="l">Actieve gates</div></div>
+  </div>
+
+
+  <!-- 30-day downloads timeline -->
+  <div class="panel" style="position:relative">
+    <div class="panel-head">
+      <span class="panel-title">Downloads — afgelopen 30 dagen</span>
+      <span class="panel-sub" id="timeline-total-label"></span>
+    </div>
+    <div class="timeline-wrap">
+      <svg class="timeline-svg" id="timeline-svg" height="90" viewBox="0 0 700 90"></svg>
+      <div class="timeline-tooltip" id="timeline-tooltip"></div>
+    </div>
   </div>
 
   <!-- Per gate -->
@@ -147,6 +173,67 @@ tbody tr:hover { background:rgba(255,255,255,.02); }
     return new Date(unix*1000).toLocaleDateString('nl-BE', { day:'numeric', month:'short' });
   }
 
+
+  function drawTimeline(days) {
+    var svg = document.getElementById('timeline-svg');
+    if (!svg || !days.length) return;
+    var tooltip = document.getElementById('timeline-tooltip');
+
+    var W = 700, H = 90, padL = 0, padR = 0, padT = 8, padB = 20;
+    var chartW = W - padL - padR;
+    var chartH = H - padT - padB;
+    var maxVal = Math.max.apply(null, days.map(function(d){ return d.count; }));
+    if (maxVal === 0) maxVal = 1;
+
+    var barW   = (chartW / days.length) * 0.65;
+    var gap    = (chartW / days.length) * 0.35;
+
+    var html = '';
+    days.forEach(function(d, i) {
+      var x   = padL + i * (chartW / days.length) + gap / 2;
+      var barH = Math.max((d.count / maxVal) * chartH, d.count > 0 ? 2 : 0);
+      var y   = padT + chartH - barH;
+
+      html += '<rect class="timeline-bar" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) +
+              '" width="' + barW.toFixed(1) + '" height="' + barH.toFixed(1) +
+              '" rx="2" data-date="' + d.date + '" data-count="' + d.count + '"></rect>';
+
+      // x-axis label: first of month or first/last day
+      var isFirst = i === 0;
+      var isLast  = i === days.length - 1;
+      var dt      = new Date(d.date + 'T12:00:00Z');
+      var showLabel = isFirst || isLast || dt.getUTCDate() === 1;
+      if (showLabel) {
+        var lbl = dt.toLocaleDateString('nl-BE', { day:'numeric', month:'short', timeZone:'UTC' });
+        html += '<text class="timeline-axis" x="' + (x + barW / 2).toFixed(1) +
+                '" y="' + (H - 3) + '" text-anchor="middle">' + lbl + '</text>';
+      }
+    });
+
+    // baseline
+    html += '<line x1="' + padL + '" y1="' + (padT + chartH) + '" x2="' + (W - padR) + '" y2="' + (padT + chartH) +
+            '" stroke="var(--border)" stroke-width="1"/>';
+
+    svg.innerHTML = html;
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+
+    // Tooltip on hover
+    svg.addEventListener('mousemove', function(e) {
+      var bar = e.target.closest('.timeline-bar');
+      if (!bar) { tooltip.style.opacity = 0; return; }
+      var rect = svg.getBoundingClientRect();
+      var x = e.clientX - rect.left + 12;
+      var y = e.clientY - rect.top  - 36;
+      var dt = new Date(bar.dataset.date + 'T12:00:00Z');
+      var lbl = dt.toLocaleDateString('nl-BE', { weekday:'short', day:'numeric', month:'short', timeZone:'UTC' });
+      tooltip.textContent = lbl + ' — ' + bar.dataset.count + ' download' + (bar.dataset.count !== '1' ? 's' : '');
+      tooltip.style.left = x + 'px';
+      tooltip.style.top  = y + 'px';
+      tooltip.style.opacity = 1;
+    });
+    svg.addEventListener('mouseleave', function() { tooltip.style.opacity = 0; });
+  }
+
   async function load() {
     try {
       var res = await fetch('/api/stats', { headers: { Authorization: 'Bearer ' + token } });
@@ -158,6 +245,12 @@ tbody tr:hover { background:rgba(255,255,255,.02); }
       document.getElementById('s-downloads').textContent = data.totals.downloads;
       document.getElementById('s-conversion').textContent = data.totals.conversion + '%';
       document.getElementById('s-gates').textContent     = data.totals.gates;
+
+      // Draw timeline chart
+      drawTimeline(data.timeline || []);
+      var totalTL = (data.timeline || []).reduce(function(s,d){ return s + d.count; }, 0);
+      var tlLabel = document.getElementById('timeline-total-label');
+      if (tlLabel) tlLabel.textContent = totalTL + ' download' + (totalTL !== 1 ? 's' : '');
 
       // Per gate
       var pg = document.getElementById('pergate-body');

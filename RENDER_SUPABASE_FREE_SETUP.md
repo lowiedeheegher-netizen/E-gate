@@ -1,97 +1,88 @@
-# E-gate on Render Free + Supabase Free
+# E-gate v1.1.0 — Render Free + Supabase Free
 
-This version does **not** need a Render Persistent Disk.
+No Render Persistent Disk needed. Supabase stores everything.
 
-Render runs the Node.js app. Supabase stores:
+## 1. Supabase — create project & run SQL
 
-- gates
-- downloaders / mailing list submissions
-- uploaded tracks
-- cover images
-- view and download stats
-
-## 1. Create Supabase project
-
-Create a new Supabase project.
-
-Then open:
-
+Create a new Supabase project, then open:
 `Supabase → SQL Editor → New query`
 
 Paste the contents of `SUPABASE_SETUP.sql` and click **Run**.
 
 This creates:
+- `public.gates` (with `is_active` column)
+- `public.submissions` (with email index)
+- Atomic counter RPC functions
+- Storage bucket `egate`
 
-- `public.gates`
-- `public.submissions`
-- private Storage bucket `egate`
+### Upgrading from v1.0?
+Run only this line in the SQL editor:
+```sql
+alter table public.gates add column if not exists is_active boolean not null default true;
+```
+Then re-run the `create or replace function` blocks from the SQL file.
 
-## 2. Get Supabase keys
-
-Open:
+## 2. Supabase keys
 
 `Supabase → Project Settings → API`
 
 Copy:
+- **Project URL**
+- **`service_role` key** (never expose this in browser code)
 
-- Project URL
-- `service_role` key
+## 3. Render environment variables
 
-Important: use the **service_role** key only on Render as an environment variable. Never place it in frontend/browser code.
+| Variable | Value |
+|---|---|
+| `SUPABASE_URL` | `https://your-ref.supabase.co` |
+| `SUPABASE_SERVICE_ROLE_KEY` | your service_role key |
+| `SUPABASE_BUCKET` | `egate` |
+| `ADMIN_EMAIL` | your login email |
+| `ADMIN_PASSWORD` | strong password |
+| `ADMIN_NAME` | your artist name |
+| `JWT_SECRET` | long random string |
 
-## 3. Render settings
+### Optional: email notifications
+Receive an email whenever someone downloads a track.
 
-On Render, set:
+| Variable | Example |
+|---|---|
+| `SMTP_HOST` | `smtp.gmail.com` |
+| `SMTP_PORT` | `587` |
+| `SMTP_USER` | `you@gmail.com` |
+| `SMTP_PASS` | Gmail App Password |
+| `SMTP_FROM` | `E-gate <you@gmail.com>` |
+| `NOTIFY_EMAIL` | email to receive alerts (defaults to ADMIN_EMAIL) |
 
-### Build Command
-
-```txt
-npm install
-```
-
-### Start Command
-
-```txt
-npm start
-```
-
-### Environment Variables
-
-```txt
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-SUPABASE_BUCKET=egate
-ADMIN_EMAIL=your-login-email@example.com
-ADMIN_PASSWORD=choose-a-strong-password
-ADMIN_NAME=Low E
-JWT_SECRET=make-this-long-and-random
-```
-
-You do **not** need to mount `/var/data` anymore.
+For Gmail: use an [App Password](https://myaccount.google.com/apppasswords), not your regular password.
 
 ## 4. Deploy
 
-Upload this zip or push this project to GitHub and deploy it on Render.
+Push to GitHub → Render picks it up automatically.
 
-After deploy, test:
-
-```txt
+After deploy, check:
+```
 /api/health
 ```
 
-It should show:
-
+Expected response:
 ```json
 {
   "ok": true,
-  "version": "1.0.0-supabase",
+  "version": "1.1.0",
   "storage": "supabase",
-  "bucket": "egate"
+  "emailNotifications": true
 }
 ```
 
-## Notes
+## What's new in v1.1.0
 
-- Existing gates from the old SQLite/local-upload version are not automatically migrated.
-- New gates created with this version are stored in Supabase and survive Render sleep/redeploys.
-- Large WAV files may upload slower on free hosting. MP3 or WAV masters with reasonable file sizes are safer.
+- **Secure downloads** — a one-hour JWT token is issued after the gate is completed. Direct `/download/:slug` links without a token are rejected.
+- **No race conditions** — view and download counters use atomic SQL RPCs instead of read+write.
+- **Duplicate prevention** — the same email can't spam your mailing list for the same gate.
+- **Rate limiting** — max 5 gate submissions per IP per 10 minutes.
+- **Gate on/off switch** — pause a gate from the dashboard without deleting it. Visitors see a "gate is closed" page.
+- **Email alerts** — optional: get notified immediately when someone downloads.
+- **Streaming downloads** — large WAV files stream directly from Supabase Storage instead of being fully buffered in memory.
+- **30-day chart** — stats page now shows a bar chart of daily downloads.
+- **Drag-to-reorder** — custom steps in the builder can be reordered by dragging.

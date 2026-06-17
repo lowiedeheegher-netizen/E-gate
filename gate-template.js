@@ -525,26 +525,36 @@ function render() {
 }
 
 // ============================================================
-//  FINAL SUBMISSION
+//  FINAL SUBMISSION  (token-secured download)
 // ============================================================
 function maybeSubmitFinal() {
   if (submitted) return;
   submitted = true;
   saveState();
-  if (CONFIG.submitUrl) {
-    fetch(CONFIG.submitUrl, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({
-        listener_name:  userData.name  || null,
-        listener_email: userData.email || null,
-        sc_username:    userData.scUsername || null,
-        sc_comment:     userData.comment    || null,
-        ig_username:    null,
-        spotify_verified: !!(doneVia.sp_follow === 'spotify' || doneVia.sp_save === 'spotify')
-      })
-    }).catch(function(){});
-  }
+  if (!CONFIG.submitUrl) return;
+
+  fetch(CONFIG.submitUrl, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({
+      listener_name:    userData.name        || null,
+      listener_email:   userData.email       || null,
+      sc_username:      userData.scUsername  || null,
+      sc_comment:       userData.comment     || null,
+      ig_username:      null,
+      spotify_verified: !!(doneVia.sp_follow === 'spotify' || doneVia.sp_save === 'spotify')
+    })
+  })
+  .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
+  .then(function(data) {
+    // Server returns a short-lived download_token — append it to the link
+    if (data && data.download_token && CONFIG.dlUrl) {
+      var secureUrl = CONFIG.dlUrl + '?token=' + encodeURIComponent(data.download_token);
+      var dlLink = document.getElementById('download-link');
+      if (dlLink) dlLink.href = secureUrl;
+    }
+  })
+  .catch(function(){ /* silent — user can still click, server will explain */ });
 }
 
 // ============================================================
@@ -924,4 +934,29 @@ function esc(s) {
   return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-module.exports = { gatePage, page404 };
+
+function pageInactive(artist, track) {
+  return `<!DOCTYPE html><html lang="nl">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>${esc(artist)} — ${esc(track)} | E-gate</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;background:#000;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif;display:flex;align-items:center;justify-content:center;text-align:center}
+.wrap{padding:40px 24px;max-width:400px}
+.icon{font-size:56px;margin-bottom:20px;opacity:.5}
+h1{font-size:20px;font-weight:700;margin-bottom:10px;color:#d4d8e0}
+p{font-size:13px;color:#74787f;line-height:1.6}
+.brand{margin-top:36px;font-size:9px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#2a2c32}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="icon">\u{1F512}</div>
+  <h1>${esc(track)}</h1>
+  <p>Deze download gate is momenteel gesloten door ${esc(artist)}.<br>Probeer het later opnieuw.</p>
+  <div class="brand">E-GATE</div>
+</div>
+</body></html>`;
+}
+
+module.exports = { gatePage, page404, pageInactive };
