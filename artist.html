@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title id="page-title">E-gate — Artiest</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+.artist-hero { text-align:center; padding:60px 20px 40px; }
+.artist-avatar { width:80px; height:80px; border-radius:50%; background:linear-gradient(135deg,#1a1c22,#2e3038);
+  display:flex; align-items:center; justify-content:center; margin:0 auto 20px;
+  font-size:32px; font-weight:900; background:var(--ember-grad); border:2px solid rgba(255,59,0,.3); }
+.artist-name { font-family:var(--font-h); font-size:28px; font-weight:700; letter-spacing:-.5px; margin-bottom:8px; }
+.artist-sub  { font-size:13px; color:var(--text-dim); }
+.gates-grid  { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; max-width:900px; margin:0 auto; }
+.gate-tile { background:var(--surface) var(--sheen); border:1px solid var(--border); border-radius:var(--radius);
+  overflow:hidden; text-decoration:none; color:inherit; display:block; transition:border-color .2s; }
+.gate-tile:hover { border-color:var(--accent); }
+.tile-cover { height:180px; background:linear-gradient(160deg,#16171b,#050506); display:flex; align-items:center; justify-content:center; }
+.tile-cover img { width:100%; height:100%; object-fit:cover; display:block; }
+.tile-cover-ph { font-size:48px; font-weight:900; color:#1f2025; }
+.tile-body { padding:14px 16px; }
+.tile-track { font-weight:700; font-size:15px; color:var(--chrome); margin-bottom:4px; }
+.tile-artist { font-size:12px; color:var(--text-dim); }
+.tile-dl { margin-top:12px; }
+.powered { text-align:center; margin-top:60px; font-size:10px; font-weight:700; letter-spacing:4px; text-transform:uppercase; color:#1e2026; }
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-brand" href="/">E<span style="color:var(--text-muted)">-</span>GATE</a>
+</nav>
+
+<div class="page-wrap" style="padding-top:0;padding-bottom:80px">
+  <div class="artist-hero">
+    <div class="artist-avatar" id="artist-avatar">?</div>
+    <div class="artist-name" id="artist-name">Laden...</div>
+    <div class="artist-sub">Free downloads — vul de stappen in om te ontgrendelen</div>
+  </div>
+
+  <div class="gates-grid" id="gates-grid">
+    <!-- filled by JS -->
+  </div>
+
+  <div class="empty" id="empty" style="display:none">
+    <div class="ico">🎵</div>
+    Geen actieve gates op dit moment.
+  </div>
+
+  <div class="powered">Powered by E-GATE</div>
+</div>
+
+<script>
+(function() {
+  function esc(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  fetch('/artist')
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      document.title = data.name + ' — Free Downloads | E-gate';
+      document.getElementById('page-title').textContent = data.name + ' — Free Downloads | E-gate';
+      document.getElementById('artist-name').textContent = data.name;
+      document.getElementById('artist-avatar').textContent = (data.name||'?')[0].toUpperCase();
+
+      var grid = document.getElementById('gates-grid');
+      var gates = data.gates || [];
+
+      if (!gates.length) {
+        document.getElementById('empty').style.display = 'block';
+        return;
+      }
+
+      gates.forEach(function(g) {
+        var url  = '/gate/' + g.slug;
+        var cover = g.cover_art
+          ? '<img src="/uploads/covers/' + esc(g.cover_art) + '" alt="' + esc(g.track_name) + '">'
+          : '<div class="tile-cover-ph">' + (g.artist_name||'?')[0].toUpperCase() + '</div>';
+
+        var tile = document.createElement('a');
+        tile.href = url;
+        tile.className = 'gate-tile';
+        tile.innerHTML =
+          '<div class="tile-cover">' + cover + '</div>' +
+          '<div class="tile-body">' +
+            '<div class="tile-track">' + esc(g.track_name) + '</div>' +
+            '<div class="tile-artist">' + esc(g.artist_name) + '</div>' +
+            '<div class="tile-dl"><span class="btn btn--primary btn--sm" style="pointer-events:none">Download gratis →</span></div>' +
+          '</div>';
+        grid.appendChild(tile);
+      });
+    })
+    .catch(function() {
+      document.getElementById('artist-name').textContent = 'Kon pagina niet laden';
+    });
+}());
+</script>
+<script src="/chrome-bg.js"></script>
+</body>
+</html>

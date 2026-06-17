@@ -125,6 +125,41 @@ body::after{content:'';position:fixed;top:0;bottom:0;left:62%;width:1px;z-index:
 .dl-note{margin-top:11px;font-size:11px;color:var(--muted);display:none}
 .dl-note.show{display:block}
 .unlocked-footer{margin-top:26px;padding-top:18px;border-top:1px solid #0f0f1c;display:flex;justify-content:center;gap:18px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+
+/* ── SoundCloud preview ──────────────────────────────── */
+.sc-preview{margin:0 0 18px;border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+.sc-preview iframe{width:100%;border:0;display:block}
+/* ── Countdown ───────────────────────────────────────── */
+.countdown-box{text-align:center;padding:44px 20px 36px}
+.countdown-label{font-size:9px;font-weight:700;letter-spacing:5px;text-transform:uppercase;color:var(--accent);margin-bottom:20px}
+.countdown-digits{display:flex;gap:8px;justify-content:center;align-items:flex-start;flex-wrap:wrap}
+.cd-unit{display:flex;flex-direction:column;align-items:center;gap:4px}
+.cd-num{font-size:44px;font-weight:900;font-variant-numeric:tabular-nums;background:var(--chrome-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;line-height:1}
+.cd-lbl{font-size:8px;letter-spacing:3px;text-transform:uppercase;color:var(--muted)}
+.cd-sep{font-size:38px;font-weight:900;color:var(--accent);line-height:1;padding-top:2px}
+/* ── Download limit ──────────────────────────────────── */
+.dl-limit{display:inline-block;margin-top:6px;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--muted-2)}
+.dl-limit.warn{color:var(--accent)}
+.dl-limit.full{color:#f87171}
+/* ── Secret code step ────────────────────────────────── */
+.icon--secret{background:linear-gradient(135deg,#1a1c22,#2e3038)}
+.card[data-group="secret"]{border-left-color:rgba(255,255,255,.12)}
+/* ── Fan wall ────────────────────────────────────────── */
+.fan-wall{margin:16px 0 0;padding:12px 16px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px}
+.fan-wall-lbl{font-size:9px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.fan-wall-names{font-size:12px;color:var(--muted-2);line-height:1.6}
+/* ── Referral ────────────────────────────────────────── */
+.referral-box{margin-top:22px;padding:18px;background:rgba(255,59,0,.04);border:1px solid rgba(255,59,0,.12);border-radius:12px;text-align:left}
+.referral-title{font-size:12px;font-weight:700;color:var(--chrome);margin-bottom:6px;letter-spacing:.3px}
+.referral-desc{font-size:11px;color:var(--muted-2);margin-bottom:12px;line-height:1.5}
+.referral-row{display:flex;gap:8px}
+.referral-input{flex:1;background:#050506;border:1px solid #26282e;border-radius:8px;padding:8px 10px;color:var(--text);font-size:11px;font-family:monospace;min-width:0;cursor:text}
+.referral-btn{flex-shrink:0}
+.referral-reward-row{margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,59,0,.1)}
+.referral-reward-title{font-size:11px;font-weight:700;color:var(--green);margin-bottom:6px}
+/* ── Unlock animation canvas ─────────────────────────── */
+#unlock-canvas{position:fixed;inset:0;pointer-events:none;z-index:9999}
+
 .egate-credit{margin-top:28px;text-align:center}
 .egate-credit a{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--border);text-decoration:none;font-weight:700;transition:color .2s}
 .egate-credit a:hover{color:var(--muted)}
@@ -164,6 +199,32 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid #ff5a
   </div>
   <div class="container">
     <p class="intro">Complete the steps below to unlock your free download.</p>
+    <!-- Countdown (shown if release_at is in the future) -->
+    <div id="countdown-box" class="countdown-box" style="display:none">
+      <div class="countdown-label">\uD83D\uDD52 Release in</div>
+      <div class="countdown-digits" id="countdown-digits">
+        <div class="cd-unit"><div class="cd-num" id="cd-d">00</div><div class="cd-lbl">Dagen</div></div>
+        <div class="cd-sep">:</div>
+        <div class="cd-unit"><div class="cd-num" id="cd-h">00</div><div class="cd-lbl">Uren</div></div>
+        <div class="cd-sep">:</div>
+        <div class="cd-unit"><div class="cd-num" id="cd-m">00</div><div class="cd-lbl">Min</div></div>
+        <div class="cd-sep">:</div>
+        <div class="cd-unit"><div class="cd-num" id="cd-s">00</div><div class="cd-lbl">Sec</div></div>
+      </div>
+    </div>
+    <!-- SoundCloud preview embed -->
+    <div class="sc-preview" id="sc-preview" style="display:none">
+      <iframe id="sc-iframe" scrolling="no" allow="autoplay"></iframe>
+    </div>
+    <!-- Download limit indicator -->
+    <div id="dl-limit-wrap" style="text-align:center;margin-bottom:12px;display:none">
+      <span class="dl-limit" id="dl-limit-text"></span>
+    </div>
+    <!-- Fan wall -->
+    <div class="fan-wall" id="fan-wall" style="display:none">
+      <div class="fan-wall-lbl">Al gedownload door</div>
+      <div class="fan-wall-names" id="fan-wall-names"></div>
+    </div>
     <div id="steps"></div>
     <div class="locked-box" id="locked-box">
       <div class="locked-icon">\uD83D\uDD12</div>
@@ -213,6 +274,12 @@ function extractSpotifyId(url) {
 STEPS.push({ id:'listener_info', kind:'identity', group:'Details', icon:'@',
   title:'Name + email', desc:'Enter your details to unlock the download',
   namePlaceholder:'Your name', emailPlaceholder:'email@example.com' });
+
+// Secret code step (if enabled server-side)
+if (CONFIG.has_secret_code) {
+  STEPS.push({ id:'secret_code', kind:'secret', group:'Details', icon:'\uD83D\uDD12',
+    title:'Secret code', desc:'Enter the secret code to unlock the download' });
+}
 
 // SoundCloud combo
 (function() {
@@ -450,6 +517,12 @@ function render() {
     }
 
     // SoundCloud combo form — single tab, inline checklist
+    if (step.kind === 'secret' && !isDone) {
+      html += '<div class="field-form"><div class="field-row">' +
+        '<input type="text" id="secret-input" class="field-input" placeholder="Code..." autocomplete="off" autocorrect="off" spellcheck="false">' +
+        '<button type="button" class="btn btn--ok btn--overig" data-action="submit-secret">OK \u2192</button>' +
+        '</div><div class="field-err" id="secret-err"></div></div>';
+    }
     if (step.kind === 'sc_combo' && !isDone) {
       html += '<div class="field-form">';
       if (step.needsComment) {
@@ -525,13 +598,16 @@ function render() {
 }
 
 // ============================================================
-//  FINAL SUBMISSION  (token-secured download)
+//  FINAL SUBMISSION
 // ============================================================
 function maybeSubmitFinal() {
   if (submitted) return;
   submitted = true;
   saveState();
   if (!CONFIG.submitUrl) return;
+
+  // Read referral code from URL if present
+  var urlRef = new URLSearchParams(window.location.search).get('ref') || null;
 
   fetch(CONFIG.submitUrl, {
     method:'POST',
@@ -542,19 +618,122 @@ function maybeSubmitFinal() {
       sc_username:      userData.scUsername  || null,
       sc_comment:       userData.comment     || null,
       ig_username:      null,
-      spotify_verified: !!(doneVia.sp_follow === 'spotify' || doneVia.sp_save === 'spotify')
+      spotify_verified: !!(doneVia.sp_follow === 'spotify' || doneVia.sp_save === 'spotify'),
+      secret_code:      userData.secretCode  || null,
+      ref_code:         urlRef
     })
   })
   .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
   .then(function(data) {
-    // Server returns a short-lived download_token — append it to the link
+    // Secure download link
     if (data && data.download_token && CONFIG.dlUrl) {
       var secureUrl = CONFIG.dlUrl + '?token=' + encodeURIComponent(data.download_token);
       var dlLink = document.getElementById('download-link');
       if (dlLink) dlLink.href = secureUrl;
     }
+    // Unlock animation
+    playUnlockAnimation();
+    // Referral
+    if (data && data.referral_code && CONFIG.referral_enabled) {
+      showReferral(data.referral_code);
+    }
   })
-  .catch(function(){ /* silent — user can still click, server will explain */ });
+  .catch(function(){ /* silent */ });
+}
+
+// ============================================================
+//  UNLOCK ANIMATION
+// ============================================================
+function playUnlockAnimation() {
+  var canvas = document.createElement('canvas');
+  canvas.id = 'unlock-canvas';
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+  document.body.appendChild(canvas);
+  var ctx = canvas.getContext('2d');
+  var particles = [];
+  var colors = ['#ff3b00','#ff5a1f','#ff7700','#ffaa00','#ffffff','#ff2200'];
+  var cx = canvas.width / 2, cy = canvas.height / 2;
+  for (var i = 0; i < 160; i++) {
+    var angle = Math.random() * Math.PI * 2;
+    var speed = 4 + Math.random() * 10;
+    particles.push({
+      x:cx, y:cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed - Math.random() * 5,
+      r: 2 + Math.random() * 5,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      life: 1, decay: 0.012 + Math.random() * 0.018,
+      trail: []
+    });
+  }
+  function frame() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles = particles.filter(function(p){ return p.life > 0; });
+    if (!particles.length) { canvas.remove(); return; }
+    particles.forEach(function(p) {
+      ctx.save();
+      ctx.globalAlpha = p.life * 0.85;
+      ctx.shadowBlur = 12; ctx.shadowColor = p.color;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      p.x += p.vx; p.y += p.vy;
+      p.vy += 0.18; // gravity
+      p.vx *= 0.98; // air resistance
+      p.life -= p.decay;
+      p.r   *= 0.985;
+    });
+    requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+// ============================================================
+//  REFERRAL
+// ============================================================
+function showReferral(code) {
+  var box = document.getElementById('referral-box');
+  var inp = document.getElementById('referral-link-input');
+  var btn = document.getElementById('referral-copy-btn');
+  if (!box || !inp) return;
+
+  var refUrl = window.location.origin + '/gate/' + CONFIG.slug + '?ref=' + code;
+  inp.value = refUrl;
+  box.style.display = 'block';
+
+  if (CONFIG.referral_has_reward) {
+    document.getElementById('referral-desc').textContent =
+      'Deel jouw link. Als iemand via jou download, claim je een exclusieve track!';
+    // Try to claim reward
+    fetch('/api/referral/reward/' + code)
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d) {
+        if (!d || !d.reward_token) return;
+        // Reward available!
+        var rewardRow = document.getElementById('referral-reward-row');
+        var rewardLink = document.getElementById('referral-reward-link');
+        if (!rewardRow || !rewardLink) return;
+        // We need the reward gate slug — it's in the token payload (base64)
+        try {
+          var payload = JSON.parse(atob(d.reward_token.split('.')[1]));
+          rewardLink.href = '/download/' + encodeURIComponent(payload.gate) + '?token=' + encodeURIComponent(d.reward_token);
+          rewardRow.style.display = 'block';
+        } catch(e) {}
+      })
+      .catch(function(){});
+  }
+
+  btn.addEventListener('click', function() {
+    navigator.clipboard.writeText(refUrl).then(function() {
+      btn.textContent = '\u2713 Gekopieerd';
+      setTimeout(function(){ btn.textContent = 'Kopieer'; }, 2000);
+    }).catch(function(){
+      inp.select(); document.execCommand('copy');
+    });
+  });
 }
 
 // ============================================================
@@ -581,6 +760,25 @@ function submitIdentity() {
   userData.email = email;
   doneSet.add('listener_info');
   doneVia.listener_info = 'identity';
+  saveState(); render();
+}
+
+// ============================================================
+//  SECRET CODE
+// ============================================================
+function submitSecret() {
+  var inp = document.getElementById('secret-input');
+  var err = document.getElementById('secret-err');
+  var val = inp ? inp.value.trim() : '';
+  if (!val) {
+    if (err) { err.textContent = 'Enter the secret code.'; err.classList.add('show'); }
+    if (inp) inp.focus();
+    return;
+  }
+  // Store temporarily; server validates during final submit
+  userData.secretCode = val;
+  doneSet.add('secret_code');
+  doneVia.secret_code = 'secret';
   saveState(); render();
 }
 
@@ -882,9 +1080,94 @@ document.getElementById('download-link').addEventListener('click', function() {
 //  INIT
 // ============================================================
 async function init() {
+  // ── Countdown ──────────────────────────────────────────
+  if (CONFIG.release_at) {
+    var releaseMs = Date.parse(CONFIG.release_at);
+    if (releaseMs > Date.now()) {
+      document.getElementById('countdown-box').style.display = 'block';
+      document.getElementById('locked-box').style.display   = 'none';
+      document.getElementById('steps').style.display        = 'none';
+      var intro = document.getElementById('intro');
+      if (intro) intro.style.display = 'none';
+
+      function updateCd() {
+        var left = Math.max(0, releaseMs - Date.now());
+        var d = Math.floor(left / 86400000);
+        var h = Math.floor((left % 86400000) / 3600000);
+        var m = Math.floor((left % 3600000)  / 60000);
+        var s = Math.floor((left % 60000)    / 1000);
+        var pad = function(n){ return String(n).padStart(2,'0'); };
+        document.getElementById('cd-d').textContent = pad(d);
+        document.getElementById('cd-h').textContent = pad(h);
+        document.getElementById('cd-m').textContent = pad(m);
+        document.getElementById('cd-s').textContent = pad(s);
+        if (left <= 0) {
+          clearInterval(cdTimer);
+          document.getElementById('countdown-box').style.display = 'none';
+          document.getElementById('steps').style.display         = 'block';
+          populateStaticContent(); render();
+        }
+      }
+      updateCd();
+      var cdTimer = setInterval(updateCd, 1000);
+    }
+  }
+
+  // ── SoundCloud preview ─────────────────────────────────
+  if (CONFIG.sc_preview_url) {
+    var previewWrap = document.getElementById('sc-preview');
+    var previewFrame = document.getElementById('sc-iframe');
+    if (previewWrap && previewFrame) {
+      previewFrame.src = 'https://w.soundcloud.com/player/?url=' +
+        encodeURIComponent(CONFIG.sc_preview_url) +
+        '&color=%23ff3b00&auto_play=false&hide_related=true&show_comments=false' +
+        '&show_user=true&show_reposts=false&show_teaser=false&visual=true';
+      previewFrame.height = '166';
+      previewWrap.style.display = 'block';
+    }
+  }
+
+  // ── Download limit indicator ───────────────────────────
+  if (CONFIG.downloads_left !== null && CONFIG.downloads_left !== undefined) {
+    var limitWrap = document.getElementById('dl-limit-wrap');
+    var limitText = document.getElementById('dl-limit-text');
+    if (limitWrap && limitText) {
+      var left = Number(CONFIG.downloads_left);
+      if (left <= 0) {
+        limitText.textContent = '\u26A0 Gate is vol — geen downloads meer beschikbaar';
+        limitText.className = 'dl-limit full';
+      } else if (left <= 10) {
+        limitText.textContent = '\uD83D\uDD25 Nog ' + left + ' download' + (left===1?'':'s') + ' beschikbaar!';
+        limitText.className = 'dl-limit warn';
+      } else {
+        limitText.textContent = 'Nog ' + left + ' downloads beschikbaar';
+        limitText.className = 'dl-limit';
+      }
+      limitWrap.style.display = 'block';
+    }
+  }
+
+  // ── Fan wall ───────────────────────────────────────────
+  if (CONFIG.fan_wall && CONFIG.fan_wall_url) {
+    fetch(CONFIG.fan_wall_url)
+      .then(function(r){ return r.json(); })
+      .then(function(d) {
+        var wall = document.getElementById('fan-wall');
+        var names = document.getElementById('fan-wall-names');
+        if (!wall || !names || !d.names || !d.names.length) return;
+        var shown = d.names.slice(0, 8);
+        var extra = (d.total || d.names.length) - shown.length;
+        var text  = shown.join(', ');
+        if (extra > 0) text += ' en ' + extra + ' anderen';
+        names.textContent = text;
+        wall.style.display = 'block';
+      })
+      .catch(function(){});
+  }
+
   if (TOTAL === 0) {
     document.getElementById('intro') && (document.getElementById('intro').style.display = 'none');
-    document.getElementById('locked-box').style.display = 'none';
+    document.getElementById('locked-box').style.display  = 'none';
     document.getElementById('unlocked-box').style.display = 'block';
     maybeSubmitFinal();
   }

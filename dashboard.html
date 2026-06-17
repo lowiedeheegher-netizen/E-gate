@@ -33,7 +33,17 @@
   text-transform:uppercase; color:var(--accent); background:rgba(255,59,0,.08);
   border:1px solid rgba(255,59,0,.15); border-radius:4px; padding:2px 7px; margin-left:6px; vertical-align:middle;
 }
+
+.qr-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.75); backdrop-filter:blur(6px);
+  display:flex; align-items:center; justify-content:center; z-index:9999; padding:20px; }
+.qr-modal-box { background:#0a0a0c; border:1px solid var(--border); border-radius:var(--radius);
+  padding:28px; max-width:320px; width:100%; text-align:center; }
+.qr-modal-title { font-family:var(--font-h); font-size:16px; font-weight:700; margin-bottom:4px; }
+.qr-modal-sub { font-size:12px; color:var(--text-dim); margin-bottom:20px; }
+#qr-container canvas, #qr-container img { border-radius:8px; }
+.qr-actions { display:flex; gap:8px; justify-content:center; margin-top:16px; }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
 <body>
 
@@ -174,6 +184,39 @@
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
+  // QR Code modal
+  var qrInstance = null;
+  function openQrModal(url, trackName) {
+    var modal   = document.getElementById('qr-modal');
+    var title   = document.getElementById('qr-modal-title');
+    var sub     = document.getElementById('qr-modal-sub');
+    var container = document.getElementById('qr-container');
+    title.textContent = trackName || 'QR Code';
+    sub.textContent   = url.replace(/^https?:\/\//, '');
+    container.innerHTML = '';
+    qrInstance = new QRCode(container, {
+      text: url, width:220, height:220,
+      colorDark:'#ffffff', colorLight:'#0a0a0c',
+      correctLevel: QRCode.CorrectLevel.H
+    });
+    modal.style.display = 'flex';
+  }
+
+  document.getElementById('qr-close-btn').addEventListener('click', function() {
+    document.getElementById('qr-modal').style.display = 'none';
+  });
+  document.getElementById('qr-modal').addEventListener('click', function(e) {
+    if (e.target === this) this.style.display = 'none';
+  });
+  document.getElementById('qr-download-btn').addEventListener('click', function() {
+    var canvas = document.querySelector('#qr-container canvas');
+    if (!canvas) return;
+    var link = document.createElement('a');
+    link.download = 'egate-qr.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  });
+
   // Load gates
   async function loadGates() {
     try {
@@ -210,6 +253,12 @@
   document.getElementById('gate-grid').addEventListener('click', async function(e) {
     var copyBtn = e.target.closest('.copy-btn');
     if (copyBtn) { copyText(copyBtn.dataset.url); return; }
+
+    var qrBtn = e.target.closest('.qr-btn');
+    if (qrBtn) {
+      openQrModal(qrBtn.dataset.url, qrBtn.dataset.name);
+      return;
+    }
 
     // Toggle active/inactive
     var toggleBtn = e.target.closest('.toggle-btn');
@@ -262,6 +311,20 @@
   loadGates();
 }());
 </script>
+
+<!-- QR Modal -->
+<div class="qr-modal-overlay" id="qr-modal" style="display:none">
+  <div class="qr-modal-box">
+    <div class="qr-modal-title" id="qr-modal-title">QR Code</div>
+    <div class="qr-modal-sub" id="qr-modal-sub"></div>
+    <div id="qr-container"></div>
+    <div class="qr-actions">
+      <button class="btn btn--primary btn--sm" id="qr-download-btn">Download PNG</button>
+      <button class="btn btn--ghost btn--sm" id="qr-close-btn">Sluiten</button>
+    </div>
+  </div>
+</div>
+
 <script src="/chrome-bg.js"></script>
 </body>
 </html>

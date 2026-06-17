@@ -125,6 +125,16 @@ tbody tr:hover { background:rgba(255,255,255,.02); }
     </div>
   </div>
 
+
+  <!-- Funnel chart -->
+  <div class="panel" id="funnel-panel" style="display:none">
+    <div class="panel-head">
+      <span class="panel-title">Stap-voor-stap conversie</span>
+      <span class="panel-sub">Hoeveel fans elke stap voltooiden</span>
+    </div>
+    <div style="padding:20px" id="funnel-body"></div>
+  </div>
+
   <!-- Recent downloaders -->
   <div class="panel">
     <div class="panel-head">
@@ -173,6 +183,45 @@ tbody tr:hover { background:rgba(255,255,255,.02); }
     return new Date(unix*1000).toLocaleDateString('nl-BE', { day:'numeric', month:'short' });
   }
 
+
+
+  function drawFunnel(totals, views) {
+    var body = document.getElementById('funnel-body');
+    if (!body) return;
+    var labels = {
+      'listener_info': 'Naam & e-mail ingevoerd',
+      'sc_all':        'SoundCloud stap voltooid',
+      'sp_follow':     'Spotify: artiest gevolgd',
+      'sp_save':       'Spotify: track opgeslagen',
+      'ig_follow':     'Instagram gevolgd',
+      'secret_code':   'Geheime code ingevoerd'
+    };
+    var maxVal = Math.max(views||1, ...Object.values(totals));
+    var html = '';
+    Object.entries(totals).forEach(function(entry) {
+      var key=entry[0], count=entry[1];
+      var label = labels[key] || key;
+      var pct   = maxVal > 0 ? Math.round((count / maxVal) * 100) : 0;
+      html += '<div style="margin-bottom:14px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
+          '<span style="font-size:12px;color:var(--text)">' + esc(label) + '</span>' +
+          '<span style="font-size:12px;font-weight:700;color:var(--chrome)">' + count + ' <span style="color:var(--text-muted);font-weight:400">(' + pct + '%)</span></span>' +
+        '</div>' +
+        '<div class="bar" style="height:7px"><div class="bar-fill" style="width:' + Math.min(pct,100) + '%"></div></div>' +
+      '</div>';
+    });
+    // Add views as baseline
+    if (views) {
+      html = '<div style="margin-bottom:14px">' +
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">' +
+          '<span style="font-size:12px;color:var(--text)">Gate bezocht</span>' +
+          '<span style="font-size:12px;font-weight:700;color:var(--chrome)">' + views + ' <span style="color:var(--text-muted);font-weight:400">(100%)</span></span>' +
+        '</div>' +
+        '<div class="bar" style="height:7px"><div class="bar-fill" style="width:100%;background:var(--chrome-grad)"></div></div>' +
+      '</div>' + html;
+    }
+    body.innerHTML = html || '<div class="empty"><div class="ico">📊</div>Nog geen stap-data. Dit wordt gevuld zodra fans de gate bezoeken.</div>';
+  }
 
   function drawTimeline(days) {
     var svg = document.getElementById('timeline-svg');
@@ -251,6 +300,12 @@ tbody tr:hover { background:rgba(255,255,255,.02); }
       var totalTL = (data.timeline || []).reduce(function(s,d){ return s + d.count; }, 0);
       var tlLabel = document.getElementById('timeline-total-label');
       if (tlLabel) tlLabel.textContent = totalTL + ' download' + (totalTL !== 1 ? 's' : '');
+
+      // Funnel chart
+      if (data.funnelTotals && Object.keys(data.funnelTotals).length) {
+        drawFunnel(data.funnelTotals, data.totals.views);
+        document.getElementById('funnel-panel').style.display = 'block';
+      }
 
       // Per gate
       var pg = document.getElementById('pergate-body');
