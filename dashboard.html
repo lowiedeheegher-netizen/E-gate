@@ -1,162 +1,226 @@
-/* E-gate — Liquid Chrome animated background
-   A WebGL fragment shader that renders flowing, 3D-ish metallic waves
-   with a glowing ember seam, echoing the brand image.
-   Falls back silently to the static CSS background if WebGL is unavailable. */
-(function () {
-  'use strict';
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>E-gate — Dashboard</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+.empty-state { text-align:center; padding:80px 24px; }
+.empty-state .icon { font-size:48px; margin-bottom:16px; }
+.empty-state h2 { font-family:var(--font-h); font-size:22px; font-weight:700; margin-bottom:8px; }
+.empty-state p { color:var(--text-dim); font-size:14px; margin-bottom:28px; line-height:1.6; }
+.loading-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; }
+.skel { background:var(--surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; animation:pulse .8s ease-in-out infinite alternate; }
+.skel-cover { height:140px; background:var(--border); }
+.skel-body { padding:16px; }
+.skel-line { height:12px; background:var(--border); border-radius:4px; margin-bottom:10px; }
+.skel-line:last-child { width:60%; }
+@keyframes pulse { from{opacity:.6} to{opacity:1} }
+</style>
+</head>
+<body>
 
-  // Respect reduced motion
-  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+<nav class="nav">
+  <a class="nav-brand" href="/">E<span style="color:var(--text-muted)">-</span>GATE</a>
+  <div class="nav-spacer"></div>
+  <div class="nav-links">
+    <span id="nav-name" style="font-size:13px;color:var(--text-dim);padding:0 10px"></span>
+    <a class="nav-link" href="/stats.html">Statistieken</a>
+    <a class="nav-link" href="/builder.html">Nieuwe gate</a>
+    <button class="nav-link" id="logout-btn" type="button">Uitloggen</button>
+  </div>
+</nav>
 
-  var canvas = document.createElement('canvas');
-  canvas.id = 'chrome-bg';
-  canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:0;display:block;pointer-events:none;';
+<div class="page-wrap page-wrap--wide" style="padding-top:40px;padding-bottom:80px">
 
-  // Keep the animated canvas visible while all page content stays above it.
-  // Earlier versions used a negative z-index, which could place the canvas behind
-  // the opaque body background on generated download gates.
-  var style = document.createElement('style');
-  style.textContent = [
-    'html,body{min-height:100%;background:#000!important;}',
-    'body{isolation:isolate;}',
-    'body::before{z-index:1!important;}',
-    'body::after{z-index:2!important;}',
-    'body>*:not(#chrome-bg){position:relative;z-index:3;}'
-  ].join('');
-  if (document.head) document.head.appendChild(style);
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:32px">
+    <div>
+      <h1 style="font-family:var(--font-h);font-size:26px;font-weight:700;letter-spacing:-.5px">Mijn E-gates</h1>
+      <p style="font-size:13px;color:var(--text-dim);margin-top:4px">Jouw download gates op één plek</p>
+    </div>
+    <a class="btn btn--primary" href="/builder.html">+ Nieuwe E-gate</a>
+  </div>
 
-  // Insert as first element so everything renders on top of the background
-  if (document.body) document.body.insertBefore(canvas, document.body.firstChild);
+  <!-- Stats row -->
+  <div class="stat-row" id="stat-row" style="display:none">
+    <div class="stat-box">
+      <div class="val" id="stat-gates">0</div>
+      <div class="lbl">Gates</div>
+    </div>
+    <div class="stat-box">
+      <div class="val" id="stat-views">0</div>
+      <div class="lbl">Weergaven</div>
+    </div>
+    <div class="stat-box">
+      <div class="val" id="stat-downloads">0</div>
+      <div class="lbl">Downloads</div>
+    </div>
+  </div>
 
-  var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-  if (!gl) { canvas.style.display = 'none'; return; } // CSS fallback stays
+  <!-- Gate grid -->
+  <div id="gate-container">
+    <!-- skeleton -->
+    <div class="loading-grid" id="skeleton">
+      <div class="skel"><div class="skel-cover"></div><div class="skel-body"><div class="skel-line"></div><div class="skel-line"></div></div></div>
+      <div class="skel"><div class="skel-cover"></div><div class="skel-body"><div class="skel-line"></div><div class="skel-line"></div></div></div>
+      <div class="skel"><div class="skel-cover"></div><div class="skel-body"><div class="skel-line"></div><div class="skel-line"></div></div></div>
+    </div>
+    <div class="gate-grid" id="gate-grid" style="display:none"></div>
+    <div id="empty-state" style="display:none">
+      <div class="empty-state">
+        <div class="icon">🎵</div>
+        <h2>Nog geen gates</h2>
+        <p>Maak je eerste E-gate aan en zet luisteraars<br>om in echte volgers.</p>
+        <a class="btn btn--primary btn--lg" href="/builder.html">Maak je eerste E-gate</a>
+      </div>
+    </div>
+  </div>
+</div>
 
-  var vert = 'attribute vec2 p;void main(){gl_Position=vec4(p,0.0,1.0);}';
+<!-- Toast -->
+<div class="toast" id="toast"></div>
 
-  // Fragment shader: domain-warped flowing metal + ember seam + spec highlights
-  var frag = [
-    'precision highp float;',
-    'uniform vec2 r;',     // resolution
-    'uniform float t;',    // time
-    '',
-    // hash + value noise
-    'float h(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}',
-    'float n(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);',
-    'float a=h(i),b=h(i+vec2(1.0,0.0)),c=h(i+vec2(0.0,1.0)),d=h(i+vec2(1.0,1.0));',
-    'return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}',
-    'float fbm(vec2 p){float v=0.0,a=0.5;for(int i=0;i<6;i++){v+=a*n(p);p*=2.02;a*=0.5;}return v;}',
-    '',
-    'void main(){',
-    '  vec2 uv=(gl_FragCoord.xy-0.5*r)/r.y;',
-    '  float tt=t*0.05;',
-    // domain warp -> liquid flow
-    '  vec2 q=vec2(fbm(uv*1.5+vec2(0.0,tt)),fbm(uv*1.5+vec2(5.2,1.3-tt)));',
-    '  vec2 w=vec2(fbm(uv*1.5+4.0*q+vec2(1.7,9.2)+tt),fbm(uv*1.5+4.0*q+vec2(8.3,2.8)-tt));',
-    '  float f=fbm(uv*1.8+4.0*w);',
-    // metallic banding from the warped field (chrome ramp)
-    '  float band=sin((w.x*3.0+w.y*2.0+f*4.0)*3.1415);',
-    '  float metal=smoothstep(-1.0,1.0,band);',
-    // base chrome color: brighter dark steel -> mirror silver
-    '  vec3 dark=vec3(0.055,0.058,0.070);',
-    '  vec3 steel=vec3(0.30,0.32,0.38);',
-    '  vec3 silver=vec3(0.92,0.94,0.99);',
-    '  vec3 col=mix(dark,steel,metal);',
-    // extra reflected chrome colour: cool blue/violet with warm silver edges
-    '  float refl=0.5+0.5*sin(uv.x*5.5-uv.y*3.2+f*7.5+t*0.10);',
-    '  vec3 blue=vec3(0.22,0.34,0.58);',
-    '  vec3 violet=vec3(0.42,0.32,0.62);',
-    '  vec3 warm=vec3(0.95,0.78,0.58);',
-    '  vec3 tint=mix(blue,violet,smoothstep(0.15,0.85,refl));',
-    '  tint=mix(tint,warm,pow(max(band,0.0),2.0)*0.35);',
-    '  col=mix(col,tint,0.20+0.18*metal);',
-    // sharp specular glints where the field folds
-    '  float spec=pow(smoothstep(0.48,0.92,f+0.30*band),4.2);',
-    '  float line=pow(abs(sin((w.x-w.y+f)*18.0)),22.0);',
-    '  col=mix(col,silver,clamp(spec*1.15+line*0.45,0.0,1.0));',
-    // lighter vignette: keeps text readable but lets more chrome shine through
-    '  float vig=smoothstep(1.32,0.15,length(uv));',
-    '  col*=mix(0.58,1.12,vig);',
-    // ── Ember seam: a glowing diagonal line that drifts & pulses ──
-    '  float ang=-0.42;', // diagonal tilt (radians)
-    '  vec2 ruv=mat2(cos(ang),-sin(ang),sin(ang),cos(ang))*uv;',
-    '  float drift=0.18*sin(t*0.15)+0.22;',
-    '  float seam=abs(ruv.x-drift);',
-    '  float wob=0.012+0.010*sin(ruv.y*6.0+t*0.6);',
-    '  float glow=smoothstep(wob*9.0,0.0,seam);',
-    '  float core=smoothstep(wob,0.0,seam);',
-    '  float pulse=0.75+0.25*sin(t*1.2);',
-    '  vec3 ember=vec3(1.0,0.23,0.0);',
-    '  vec3 emberHot=vec3(1.0,0.55,0.18);',
-    '  col+=ember*glow*0.35*pulse;',
-    '  col+=emberHot*core*1.05*pulse;',
-    // subtle ember bounce light on nearby metal
-    '  col+=ember*spec*glow*0.35;',
-    '  gl_FragColor=vec4(col,1.0);',
-    '}'
-  ].join('\n');
+<script>
+(function() {
+  // Auth guard
+  var token = localStorage.getItem('egate_token');
+  if (!token) { window.location.href = '/login.html'; return; }
 
-  function compile(type, src) {
-    var s = gl.createShader(type);
-    gl.shaderSource(s, src);
-    gl.compileShader(s);
-    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { return null; }
-    return s;
-  }
+  var name = localStorage.getItem('egate_name') || '';
+  if (name) document.getElementById('nav-name').textContent = name;
 
-  var vs = compile(gl.VERTEX_SHADER, vert);
-  var fs = compile(gl.FRAGMENT_SHADER, frag);
-  if (!vs || !fs) { canvas.style.display = 'none'; return; }
-
-  var prog = gl.createProgram();
-  gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
-  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { canvas.style.display = 'none'; return; }
-  gl.useProgram(prog);
-
-  var buf = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
-  var loc = gl.getAttribLocation(prog, 'p');
-  gl.enableVertexAttribArray(loc);
-  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-
-  var uR = gl.getUniformLocation(prog, 'r');
-  var uT = gl.getUniformLocation(prog, 't');
-
-  var dpr = Math.min(window.devicePixelRatio || 1, 1.5); // cap for perf
-  function resize() {
-    var w = Math.floor(window.innerWidth * dpr);
-    var h = Math.floor(window.innerHeight * dpr);
-    if (canvas.width !== w || canvas.height !== h) {
-      canvas.width = w; canvas.height = h;
-      gl.viewport(0, 0, w, h);
-    }
-  }
-  window.addEventListener('resize', resize);
-  resize();
-
-  var start = performance.now();
-
-  if (reduce) {
-    // Render a single static frame, no animation loop
-    gl.uniform2f(uR, canvas.width, canvas.height);
-    gl.uniform1f(uT, 12.0);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-    return;
-  }
-
-  var running = true;
-  document.addEventListener('visibilitychange', function () {
-    running = !document.hidden;
-    if (running) loop();
+  document.getElementById('logout-btn').addEventListener('click', function() {
+    localStorage.removeItem('egate_token');
+    localStorage.removeItem('egate_name');
+    window.location.href = '/';
   });
 
-  function loop() {
-    if (!running) return;
-    var now = (performance.now() - start) / 1000;
-    gl.uniform2f(uR, canvas.width, canvas.height);
-    gl.uniform1f(uT, now);
-    gl.drawArrays(gl.TRIANGLES, 0, 3);
-    requestAnimationFrame(loop);
+  // Toast
+  var toastEl = document.getElementById('toast');
+  var toastTimer;
+  function showToast(msg, type) {
+    clearTimeout(toastTimer);
+    toastEl.textContent = msg;
+    toastEl.className = 'toast show ' + (type || '');
+    toastTimer = setTimeout(function() { toastEl.classList.remove('show'); }, 2800);
   }
-  loop();
-})();
+
+  // Copy to clipboard
+  function copyText(text) {
+    navigator.clipboard.writeText(text).then(function() {
+      showToast('\u2713 Link gekopieerd', 'success');
+    }).catch(function() {
+      showToast('Kopiëren mislukt', 'error');
+    });
+  }
+
+  // Render a gate card
+  function renderCard(gate) {
+    var gateUrl = window.location.origin + '/gate/' + gate.slug;
+    var coverHtml = gate.cover_art
+      ? '<img src="/uploads/covers/' + gate.cover_art + '" alt="' + escHtml(gate.track_name) + '">'
+      : '<div class="gate-cover-ph">' + (gate.artist_name[0] || 'E').toUpperCase() + '</div>';
+
+    var date = gate.created_at
+      ? new Date(gate.created_at * 1000).toLocaleDateString('nl-BE', { day:'numeric', month:'short', year:'numeric' })
+      : '';
+
+    var card = document.createElement('div');
+    card.className = 'gate-card';
+    card.dataset.id = gate.id;
+    card.innerHTML =
+      '<div class="gate-cover">' + coverHtml +
+        '<div class="gate-slug-badge">' + escHtml(gate.slug) + '</div>' +
+      '</div>' +
+      '<div class="gate-body">' +
+        '<div class="gate-name">' + escHtml(gate.track_name) + '</div>' +
+        '<div class="gate-artist">' + escHtml(gate.artist_name) + (date ? ' &mdash; ' + date : '') + '</div>' +
+        '<div class="gate-stats">' +
+          '<div class="gate-stat">\uD83D\uDC41 <strong>' + (gate.view_count || 0) + '</strong> views</div>' +
+          '<div class="gate-stat">\u2B07 <strong>' + (gate.complete_count || 0) + '</strong> downloads</div>' +
+        '</div>' +
+        '<div class="gate-url-row">' +
+          '<div class="gate-url" title="' + gateUrl + '">' + gateUrl.replace(/^https?:\/\//, '') + '</div>' +
+          '<div class="gate-actions">' +
+            '<a class="btn btn--ghost btn--sm" href="/builder.html?edit=' + gate.id + '" title="Bewerk gate">\u270E</a>' +
+            '<a class="btn btn--ghost btn--sm" href="/api/gates/' + gate.id + '/mailinglist.csv?token=' + encodeURIComponent(token) + '" title="Download mailinglist CSV">CSV</a>' +
+            '<button class="btn btn--ghost btn--sm copy-btn" data-url="' + gateUrl + '" title="Kopieer link">\uD83D\uDCCB</button>' +
+            '<a class="btn btn--ghost btn--sm" href="' + gateUrl + '" target="_blank" rel="noopener" title="Bekijk gate">\u2197</a>' +
+            '<button class="btn btn--danger btn--sm delete-btn" data-id="' + gate.id + '" data-name="' + escHtml(gate.track_name) + '" title="Verwijder">\uD83D\uDDD1</button>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    return card;
+  }
+
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Load gates
+  async function loadGates() {
+    try {
+      var res  = await fetch('/api/gates', { headers: { Authorization: 'Bearer ' + token } });
+      if (res.status === 401) { localStorage.removeItem('egate_token'); window.location.href = '/login.html'; return; }
+      var gates = await res.json();
+
+      document.getElementById('skeleton').style.display = 'none';
+
+      if (!gates.length) {
+        document.getElementById('empty-state').style.display = 'block';
+        return;
+      }
+
+      // Stats
+      var totalViews = gates.reduce(function(a, g) { return a + (g.view_count || 0); }, 0);
+      var totalDl    = gates.reduce(function(a, g) { return a + (g.complete_count || 0); }, 0);
+      document.getElementById('stat-gates').textContent     = gates.length;
+      document.getElementById('stat-views').textContent     = totalViews;
+      document.getElementById('stat-downloads').textContent = totalDl;
+      document.getElementById('stat-row').style.display     = 'flex';
+
+      var grid = document.getElementById('gate-grid');
+      grid.style.display = 'grid';
+      gates.forEach(function(g) { grid.appendChild(renderCard(g)); });
+
+    } catch(e) {
+      document.getElementById('skeleton').style.display = 'none';
+      document.getElementById('empty-state').style.display = 'block';
+    }
+  }
+
+  // Event delegation for card buttons
+  document.getElementById('gate-grid').addEventListener('click', async function(e) {
+    var copyBtn = e.target.closest('.copy-btn');
+    if (copyBtn) { copyText(copyBtn.dataset.url); return; }
+
+    var delBtn = e.target.closest('.delete-btn');
+    if (!delBtn) return;
+    var id   = delBtn.dataset.id;
+    var name = delBtn.dataset.name;
+    if (!confirm('Verwijder "' + name + '"? Dit kan niet ongedaan worden.')) return;
+
+    delBtn.disabled = true;
+    try {
+      var res = await fetch('/api/gates/' + id, {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (!res.ok) { var d = await res.json(); showToast(d.error || 'Verwijderen mislukt', 'error'); delBtn.disabled = false; return; }
+      var card = document.querySelector('.gate-card[data-id="' + id + '"]');
+      if (card) { card.style.opacity = '0'; card.style.transform = 'scale(.95)'; card.style.transition = 'all .25s'; setTimeout(function(){ card.remove(); }, 260); }
+      showToast('Gate verwijderd', 'success');
+    } catch(e) {
+      showToast('Verbindingsfout', 'error');
+      delBtn.disabled = false;
+    }
+  });
+
+  loadGates();
+}());
+</script>
+<script src="/chrome-bg.js"></script>
+</body>
+</html>

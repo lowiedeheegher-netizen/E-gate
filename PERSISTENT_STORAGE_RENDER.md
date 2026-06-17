@@ -1,19 +1,7 @@
-{
-  "name": "e-gate",
-  "version": "1.0.0",
-  "description": "E-gate — Free download gates for artists",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.50.0",
-    "express": "^4.18.2",
-    "jsonwebtoken": "^9.0.2",
-    "multer": "^1.4.5-lts.1",
-    "ws": "^8.18.0"
-  },
-  "engines": {
-    "node": ">=20"
-  }
-}
+# Persistent storage note
+
+This Supabase version no longer needs a Render Persistent Disk.
+
+The app stores gates, submissions, tracks and cover art in Supabase instead of the local Render filesystem.
+
+Use the instructions in `RENDER_SUPABASE_FREE_SETUP.md`.
