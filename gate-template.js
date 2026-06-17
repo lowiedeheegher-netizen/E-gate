@@ -160,6 +160,11 @@ body::after{content:'';position:fixed;top:0;bottom:0;left:62%;width:1px;z-index:
 /* ── Unlock animation canvas ─────────────────────────── */
 #unlock-canvas{position:fixed;inset:0;pointer-events:none;z-index:9999}
 
+
+/* ── Readable center column ───────────────────────────── */
+.page-col{max-width:560px;margin:0 auto;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);min-height:100vh;border-left:1px solid rgba(255,255,255,.04);border-right:1px solid rgba(255,255,255,.04)}
+.hero{background:linear-gradient(180deg,rgba(5,5,9,.98) 0%,rgba(5,5,9,.8) 100%)!important}
+
 .egate-credit{margin-top:28px;text-align:center}
 .egate-credit a{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--border);text-decoration:none;font-weight:700;transition:color .2s}
 .egate-credit a:hover{color:var(--muted)}
@@ -172,6 +177,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid #ff5a
 </head>
 <body>
 <div id="app">
+  <div class="page-col">
   <div class="topbar">
     <span class="brand" id="topbar-brand"></span>
     <a class="egate-badge" href="/" target="_blank" rel="noopener">E-GATE</a>
@@ -247,6 +253,7 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid #ff5a
     </div>
     <div class="egate-credit"><a href="/" target="_blank" rel="noopener">E-GATE</a></div>
   </div>
+  </div><!-- /page-col -->
 </div>
 <script>
 var CONFIG = ${cj};
