@@ -1,4 +1,6 @@
-# E-gate on Render Free + Supabase Free
+'use strict';
+
+const express = require('express');
 
 This version does **not** need a Render Persistent Disk.
 
