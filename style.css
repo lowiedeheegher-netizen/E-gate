@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>E-gate — Statistieken</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+.stats-hero { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:14px; }
+.stat-big {
+  flex:1; min-width:150px; background:var(--surface) var(--sheen); border:1px solid var(--border);
+  border-radius:var(--radius); padding:22px 24px; box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+  position:relative; overflow:hidden;
+}
+.stat-big::before { content:''; position:absolute; top:0; left:0; right:0; height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent) 50%,transparent); opacity:.5; }
+.stat-big .v { font-family:var(--font-h); font-size:38px; font-weight:700; line-height:1;
+  background:var(--chrome-grad); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent; }
+.stat-big .l { font-size:11px; color:var(--text-dim); margin-top:8px; letter-spacing:1px; text-transform:uppercase; }
+.stat-big.accent .v { background:var(--ember-grad); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 14px rgba(255,59,0,.3)); }
+
+.panel { background:var(--surface) var(--sheen); border:1px solid var(--border); border-radius:var(--radius);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04); margin-bottom:14px; overflow:hidden; }
+.panel-head { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.panel-title { font-family:var(--font-h); font-size:14px; font-weight:600; color:var(--chrome); letter-spacing:.5px; }
+.panel-sub { font-size:11px; color:var(--text-muted); }
+
+table { width:100%; border-collapse:collapse; }
+th { text-align:left; font-size:10px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
+  color:var(--text-muted); padding:12px 20px; border-bottom:1px solid var(--border); }
+td { padding:13px 20px; font-size:13px; color:var(--text); border-bottom:1px solid var(--border); }
+tr:last-child td { border-bottom:none; }
+tbody tr { transition:background .15s; }
+tbody tr:hover { background:rgba(255,255,255,.02); }
+.t-mono { font-family:monospace; font-size:12px; color:var(--text-dim); }
+.t-dim { color:var(--text-dim); }
+.t-track { font-weight:600; color:var(--chrome); }
+.bar { height:5px; background:var(--bg); border-radius:99px; overflow:hidden; min-width:60px; margin-top:5px; }
+.bar-fill { height:100%; background:var(--ember-grad); border-radius:99px; }
+.badge-sp { display:inline-block; font-size:10px; font-weight:700; color:var(--green);
+  background:rgba(74,222,128,.1); border:1px solid rgba(74,222,128,.2); border-radius:4px; padding:2px 7px; }
+.empty { text-align:center; padding:50px 20px; color:var(--text-dim); font-size:13px; }
+.empty .ico { font-size:32px; margin-bottom:12px; opacity:.6; }
+.comment-cell { max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-dim); font-style:italic; }
+.skel-row td { color:transparent; }
+.skel-row td span { display:inline-block; height:11px; width:70%; background:var(--border); border-radius:4px; animation:pulse .8s infinite alternate; }
+@keyframes pulse { from{opacity:.5} to{opacity:1} }
+.scroll-x { overflow-x:auto; }
+@media(max-width:560px){ .stat-big .v{font-size:30px} th,td{padding:10px 12px} }
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-brand" href="/">E<span style="color:var(--text-muted)">-</span>GATE</a>
+  <div class="nav-spacer"></div>
+  <div class="nav-links">
+    <a class="nav-link" href="/dashboard.html">Gates</a>
+    <a class="nav-link active" href="/stats.html">Statistieken</a>
+    <a class="nav-link" href="/builder.html">Nieuwe gate</a>
+    <button class="nav-link" id="logout-btn" type="button">Uitloggen</button>
+  </div>
+</nav>
+
+<div class="page-wrap page-wrap--wide" style="padding-top:40px;padding-bottom:80px">
+
+  <div style="margin-bottom:28px">
+    <h1 style="font-family:var(--font-h);font-size:26px;font-weight:700;letter-spacing:-.5px">Statistieken</h1>
+    <p style="font-size:13px;color:var(--text-dim);margin-top:4px">Bezoeken, downloads en wie je tracks ophaalde.</p>
+    <a class="btn btn--primary btn--sm" id="csv-download" href="/api/mailinglist.csv" style="display:inline-flex;margin-top:14px">Download mailinglist CSV</a>
+  </div>
+
+  <!-- Big numbers -->
+  <div class="stats-hero" id="stats-hero">
+    <div class="stat-big"><div class="v" id="s-views">—</div><div class="l">Gate bezoeken</div></div>
+    <div class="stat-big accent"><div class="v" id="s-downloads">—</div><div class="l">Downloads</div></div>
+    <div class="stat-big"><div class="v" id="s-conversion">—</div><div class="l">Conversie</div></div>
+    <div class="stat-big"><div class="v" id="s-gates">—</div><div class="l">Actieve gates</div></div>
+  </div>
+
+  <!-- Per gate -->
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-title">Per gate</span>
+      <span class="panel-sub">Gesorteerd op downloads</span>
+    </div>
+    <div class="scroll-x">
+      <table>
+        <thead>
+          <tr><th>Track</th><th>Link</th><th>Bezoeken</th><th>Downloads</th><th style="width:120px">Conversie</th></tr>
+        </thead>
+        <tbody id="pergate-body">
+          <tr class="skel-row"><td><span></span></td><td><span></span></td><td><span></span></td><td><span></span></td><td><span></span></td></tr>
+          <tr class="skel-row"><td><span></span></td><td><span></span></td><td><span></span></td><td><span></span></td><td><span></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Recent downloaders -->
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-title">Wie heeft gedownload</span>
+      <span class="panel-sub">Laatste 100</span>
+    </div>
+    <div class="scroll-x">
+      <table>
+        <thead>
+          <tr><th>Wanneer</th><th>Naam</th><th>Email</th><th>Track</th><th>SoundCloud</th><th>Comment</th><th>Spotify</th></tr>
+        </thead>
+        <tbody id="recent-body">
+          <tr class="skel-row"><td><span></span></td><td><span></span></td><td><span></span></td><td><span></span></td><td><span></span></td><td><span></span></td><td><span></span></td></tr>
+          <tr class="skel-row"><td><span></span></td><td><span></span></td><td><span></span></td><td><span></span></td><td><span></span></td><td><span></span></td><td><span></span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function() {
+  var token = localStorage.getItem('egate_token');
+  if (!token) { window.location.href = '/login.html'; return; }
+
+  var csvLink = document.getElementById('csv-download');
+  if (csvLink) csvLink.href = '/api/mailinglist.csv?token=' + encodeURIComponent(token);
+
+  document.getElementById('logout-btn').addEventListener('click', function() {
+    localStorage.removeItem('egate_token');
+    localStorage.removeItem('egate_name');
+    window.location.href = '/';
+  });
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function timeAgo(unix) {
+    var diff = Math.floor(Date.now()/1000) - unix;
+    if (diff < 60)    return 'net nu';
+    if (diff < 3600)  return Math.floor(diff/60) + ' min geleden';
+    if (diff < 86400) return Math.floor(diff/3600) + ' u geleden';
+    if (diff < 604800) return Math.floor(diff/86400) + ' d geleden';
+    return new Date(unix*1000).toLocaleDateString('nl-BE', { day:'numeric', month:'short' });
+  }
+
+  async function load() {
+    try {
+      var res = await fetch('/api/stats', { headers: { Authorization: 'Bearer ' + token } });
+      if (res.status === 401) { localStorage.removeItem('egate_token'); window.location.href = '/login.html'; return; }
+      var data = await res.json();
+
+      // Big numbers
+      document.getElementById('s-views').textContent     = data.totals.views;
+      document.getElementById('s-downloads').textContent = data.totals.downloads;
+      document.getElementById('s-conversion').textContent = data.totals.conversion + '%';
+      document.getElementById('s-gates').textContent     = data.totals.gates;
+
+      // Per gate
+      var pg = document.getElementById('pergate-body');
+      if (!data.perGate.length) {
+        pg.innerHTML = '<tr><td colspan="5"><div class="empty"><div class="ico">🎵</div>Nog geen gates. Maak er een aan om statistieken te zien.</div></td></tr>';
+      } else {
+        pg.innerHTML = data.perGate.map(function(g) {
+          var conv = g.view_count > 0 ? Math.round((g.complete_count / g.view_count) * 100) : 0;
+          return '<tr>' +
+            '<td class="t-track">' + esc(g.track_name) + '</td>' +
+            '<td class="t-mono">/gate/' + esc(g.slug) + '</td>' +
+            '<td>' + g.view_count + '</td>' +
+            '<td>' + g.complete_count + '</td>' +
+            '<td>' + conv + '%<div class="bar"><div class="bar-fill" style="width:' + Math.min(conv,100) + '%"></div></div></td>' +
+          '</tr>';
+        }).join('');
+      }
+
+      // Recent downloaders
+      var rb = document.getElementById('recent-body');
+      if (!data.recent.length) {
+        rb.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="ico">📥</div>Nog geen downloads geregistreerd.<br><span style="font-size:11px">Zodra fans je gate voltooien, verschijnen ze hier.</span></div></td></tr>';
+      } else {
+        rb.innerHTML = data.recent.map(function(r) {
+          return '<tr>' +
+            '<td class="t-dim">' + timeAgo(r.created_at) + '</td>' +
+            '<td>' + (r.listener_name ? esc(r.listener_name) : '<span class="t-dim">—</span>') + '</td>' +
+            '<td class="t-mono">' + (r.listener_email ? esc(r.listener_email) : '<span class="t-dim">—</span>') + '</td>' +
+            '<td>' + esc(r.track_name) + '</td>' +
+            '<td>' + (r.sc_username ? '@' + esc(r.sc_username) : '<span class="t-dim">—</span>') + '</td>' +
+            '<td class="comment-cell">' + (r.sc_comment ? '"' + esc(r.sc_comment) + '"' : '<span class="t-dim" style="font-style:normal">—</span>') + '</td>' +
+            '<td>' + (r.spotify_verified ? '<span class="badge-sp">✓ geverifieerd</span>' : '<span class="t-dim">—</span>') + '</td>' +
+          '</tr>';
+        }).join('');
+      }
+
+    } catch(e) {
+      document.getElementById('pergate-body').innerHTML = '<tr><td colspan="5"><div class="empty">Kon statistieken niet laden. Probeer te verversen.</div></td></tr>';
+      document.getElementById('recent-body').innerHTML = '';
+    }
+  }
+
+  load();
+}());
+</script>
+<script src="/chrome-bg.js"></script>
+</body>
+</html>

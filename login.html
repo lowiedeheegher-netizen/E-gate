@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>E-gate</title>
+<script>
+  // Privé-platform: ga direct naar dashboard als ingelogd, anders login
+  var t = localStorage.getItem('egate_token');
+  window.location.replace(t ? '/dashboard.html' : '/login.html');
+</script>
+</head>
+<body></body>
+</html>
