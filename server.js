@@ -191,10 +191,12 @@ async function requireSubscription(req,res,next) {
   if(req.user.role==='admin') return next();
   const { data:u } = await supabase.from('users').select('subscription_status,trial_ends_at').eq('id',req.user.id).maybeSingle();
   if (!u) return res.status(401).json({error:'Account niet gevonden'});
-  const active = u.subscription_status==='active' ||
-    (u.subscription_status==='trial' && new Date(u.trial_ends_at)>new Date());
-  if (!active) return res.status(402).json({error:'Abonnement vereist',code:'SUBSCRIPTION_REQUIRED'});
-  next();
+  const isPro = u.subscription_status==='active' || (u.subscription_status==='trial' && new Date(u.trial_ends_at)>new Date());
+  if (isPro) return next();
+  // Free plan: allow 1 gate
+  const { count } = await supabase.from('gates').select('*',{count:'exact',head:true}).eq('artist_id',req.user.id);
+  if ((count||0) < 1) return next(); // First gate always free
+  return res.status(402).json({error:'Free plan limiet bereikt (1 gate). Upgrade naar Pro voor onbeperkte gates.',code:'UPGRADE_REQUIRED'});
 }
 
 // ── Utility ───────────────────────────────────────────────
@@ -640,7 +642,7 @@ app.post('/api/submit/:slug', asyncHandler(async(req,res)=>{
   let subId=existing?.id;
   if(!existing){
     subId=uid();
-    const{error:ie}=await supabase.from('submissions').insert({id:subId,gate_id:g.id,listener_name:name,listener_email:email,sc_username:sc_username||null,sc_comment:sc_comment||null,ig_username:ig_username||null,spotify_verified:!!spotify_verified,ref_code:ref_code||null});
+    const{error:ie}=await supabase.from('submissions').insert({id:subId,gate_id:g.id,listener_name:name,listener_email:email,sc_username:sc_username||null,sc_comment:sc_comment||null,ig_username:ig_username||null,spotify_verified:!!spotify_verified,ref_code:ref_code||null,referrer:String(req.body?.referrer||'').slice(0,200)||null});
     dbError(ie,'insert sub');
     await supabase.rpc('increment_complete',{gate_id_arg:g.id});
     if(ref_code){
@@ -721,4 +723,124 @@ app.listen(PORT,()=>{
   console.log('  Supabase: '+new URL(SUPABASE_URL).host);
   console.log('  Stripe: '+(stripe?'enabled':'disabled'));
   console.log('  Artist page: /'+ADMIN_SLUG+'\n');
+});
+
+// ═══════════════════════════════════════════════════════════
+//  V4.0 ADDITIONS
+// ═══════════════════════════════════════════════════════════
+
+// ── Geo lookup (fire-and-forget) ──────────────────────────
+async function getCountryCode(ip) {
+  if (!ip||ip==='unknown'||ip.startsWith('127.')||ip==='::1') return null;
+  try {
+    const r = await fetch(`https://ipapi.co/${ip}/country_code/`,
+      { signal:AbortSignal.timeout(2000), headers:{'User-Agent':'E-gate/4.0'} });
+    if (!r.ok) return null;
+    const code = (await r.text()).trim();
+    return /^[A-Z]{2}$/.test(code) ? code : null;
+  } catch { return null; }
+}
+
+// ── Password reset ────────────────────────────────────────
+app.post('/api/auth/forgot-password', asyncHandler(async(req,res)=>{
+  const { email } = req.body||{};
+  // Always return 200 to avoid email enumeration
+  res.json({ ok:true, message:'Als dit e-mailadres bekend is, ontvang je een resetlink.' });
+  if (!email||!mailer) return;
+  const { data:u } = await supabase.from('users').select('id,name').eq('email',email.toLowerCase()).maybeSingle();
+  if (!u) return;
+  const raw = crypto.randomBytes(32).toString('hex');
+  const hash = crypto.createHash('sha256').update(raw).digest('hex');
+  await supabase.from('password_reset_tokens').insert({ id:uid(), user_id:u.id, token_hash:hash, expires_at:new Date(Date.now()+3600000).toISOString() });
+  sendMail(email,'Wachtwoord resetten — E-gate',
+    `Hey ${u.name},\n\nKlik om je wachtwoord te resetten:\n${APP_URL}/reset-password.html?token=${raw}\n\nDeze link is 1 uur geldig.\nAls je dit niet aangevraagd hebt, negeer dan deze mail.`
+  ).catch(()=>{});
+}));
+
+app.post('/api/auth/reset-password', asyncHandler(async(req,res)=>{
+  const { token, password } = req.body||{};
+  if (!token||!password) return res.status(400).json({error:'Token en wachtwoord zijn verplicht'});
+  if (password.length<8) return res.status(400).json({error:'Wachtwoord moet minstens 8 tekens zijn'});
+  const hash = crypto.createHash('sha256').update(token).digest('hex');
+  const { data:rt } = await supabase.from('password_reset_tokens').select('*').eq('token_hash',hash).is('used_at',null).maybeSingle();
+  if (!rt) return res.status(400).json({error:'Ongeldige of al gebruikte link.'});
+  if (new Date(rt.expires_at)<new Date()) return res.status(400).json({error:'Link verlopen. Vraag een nieuwe aan.'});
+  const newHash = await hashPassword(password);
+  await supabase.from('users').update({password_hash:newHash}).eq('id',rt.user_id);
+  await supabase.from('password_reset_tokens').update({used_at:new Date().toISOString()}).eq('id',rt.id);
+  res.json({ok:true});
+}));
+
+// ── Email verification ────────────────────────────────────
+app.post('/api/auth/send-verification', requireAuth, asyncHandler(async(req,res)=>{
+  if (req.user.role==='admin') return res.json({ok:true});
+  if (!mailer) return res.status(503).json({error:'E-mail niet geconfigureerd.'});
+  const u = await getUser(req.user.id);
+  if (!u||u.email_verified) return res.json({ok:true});
+  const raw = crypto.randomBytes(32).toString('hex');
+  const hash = crypto.createHash('sha256').update(raw).digest('hex');
+  await supabase.from('email_verification_tokens').upsert({ id:uid(), user_id:u.id, token_hash:hash, expires_at:new Date(Date.now()+7*86400000).toISOString() }, { onConflict:'user_id' });
+  await sendMail(u.email,'Bevestig je e-mailadres — E-gate',`Hey ${u.name},\n\nKlik hier om je e-mailadres te bevestigen:\n${APP_URL}/verify-email.html?token=${raw}\n\nDeze link is 7 dagen geldig.`);
+  res.json({ok:true});
+}));
+
+app.get('/api/auth/verify-email', asyncHandler(async(req,res)=>{
+  const { token } = req.query;
+  if (!token) return res.status(400).json({error:'Token ontbreekt'});
+  const hash = crypto.createHash('sha256').update(token).digest('hex');
+  const { data:vt } = await supabase.from('email_verification_tokens').select('*').eq('token_hash',hash).maybeSingle();
+  if (!vt||new Date(vt.expires_at)<new Date()) return res.status(400).json({error:'Ongeldige of verlopen link'});
+  await supabase.from('users').update({email_verified:true,plan:'free'}).eq('id',vt.user_id);
+  await supabase.from('email_verification_tokens').delete().eq('id',vt.id);
+  res.json({ok:true});
+}));
+
+// ── Platform stats (landing page) ─────────────────────────
+app.get('/api/platform-stats', asyncHandler(async(req,res)=>{
+  const { data } = await supabase.rpc('platform_stats');
+  const s = data?.[0]||{total_gates:0,total_downloads:0,total_artists:0};
+  res.json(s);
+}));
+
+// ── Geo & referrer stats ──────────────────────────────────
+app.get('/api/stats/geo', requireAuth, asyncHandler(async(req,res)=>{
+  const artistId = req.user.role==='admin'?'admin':req.user.id;
+  const { data } = await supabase.rpc('geo_breakdown',{artist_id_arg:artistId});
+  res.json(data||[]);
+}));
+
+app.get('/api/stats/referrers', requireAuth, asyncHandler(async(req,res)=>{
+  const artistId = req.user.role==='admin'?'admin':req.user.id;
+  const { data } = await supabase.rpc('referrer_breakdown',{artist_id_arg:artistId});
+  res.json(data||[]);
+}));
+
+// ── Embed gate page ───────────────────────────────────────
+app.get('/embed/:slug', asyncHandler(async(req,res)=>{
+  const g = await getGateBySlug(req.params.slug);
+  if (!g||g.is_active===false) return res.status(404).send('<p style="font-family:sans-serif;color:#666;padding:20px">Gate not found</p>');
+  const cfg = parseCfg(g.config);
+  cfg.artist=g.artist_name; cfg.track=g.track_name; cfg.slug=g.slug;
+  cfg.dlUrl=g.track_file?'/download/'+encodeURIComponent(g.slug):'';
+  cfg.cover=g.cover_art?'/uploads/covers/'+g.cover_art:'';
+  cfg.submitUrl='/api/submit/'+g.slug;
+  cfg.fan_wall_url='/api/fan-wall/'+g.slug;
+  cfg.downloads_left=(cfg.max_downloads&&cfg.max_downloads>0)?Math.max(0,Number(cfg.max_downloads)-Number(g.complete_count||0)):null;
+  cfg.has_secret_code=!!cfg.secret_code; delete cfg.secret_code;
+  cfg.referral_has_reward=!!cfg.referral_reward_gate_slug; delete cfg.referral_reward_gate_slug;
+  cfg.embed=true;
+  res.setHeader('Content-Type','text/html; charset=utf-8');
+  res.setHeader('X-Frame-Options','ALLOWALL');
+  res.setHeader('Content-Security-Policy',"frame-ancestors *");
+  res.send(gatePage(cfg));
+}));
+
+// ── Updated cover proxy with OG support ───────────────────
+// (Override the existing /uploads/covers/:filename route by adding this after)
+// Note: the first matching route wins in Express, so this won't work as an override.
+// The OG support is handled in gate-template.js by using a longer cache.
+
+// ── Static pages v4 ───────────────────────────────────────
+['forgot-password','reset-password','verify-email'].forEach(p=>{
+  app.get('/'+p+'.html',(req,res)=>sendPage(res,p+'.html'));
 });

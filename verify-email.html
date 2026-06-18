@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>E-mail bevestigen — E-gate</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<nav class="nav"><a class="nav-brand" href="/">E<span style="color:var(--text-muted)">-</span>GATE</a></nav>
+<div class="auth-page">
+  <div class="auth-card" style="text-align:center">
+    <div id="loading" style="padding:20px;color:var(--text-dim)">⏳ Bevestigen...</div>
+    <div id="success" style="display:none">
+      <div style="font-size:48px;margin-bottom:16px">✅</div>
+      <div class="auth-title">E-mail bevestigd!</div>
+      <div class="auth-sub">Je account is nu volledig actief.</div>
+      <a href="/dashboard.html" class="btn btn--primary" style="margin-top:20px;display:inline-block;padding:12px 24px">Naar dashboard →</a>
+    </div>
+    <div id="error" style="display:none">
+      <div style="font-size:48px;margin-bottom:16px">❌</div>
+      <div class="auth-title">Ongeldige link</div>
+      <div class="auth-sub">Deze link is verlopen of al gebruikt.</div>
+      <a href="/login.html" class="btn btn--ghost" style="margin-top:20px;display:inline-block">Terug naar inloggen</a>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  var token=new URLSearchParams(window.location.search).get('token');
+  if(!token){document.getElementById('loading').style.display='none';document.getElementById('error').style.display='block';return;}
+  fetch('/api/auth/verify-email?token='+encodeURIComponent(token))
+    .then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d};});})
+    .then(function(res){
+      document.getElementById('loading').style.display='none';
+      if(res.ok){document.getElementById('success').style.display='block';}
+      else{document.getElementById('error').style.display='block';}
+    })
+    .catch(function(){document.getElementById('loading').style.display='none';document.getElementById('error').style.display='block';});
+}());
+</script>
+<script src="/chrome-bg.js"></script>
+</body>
+</html>

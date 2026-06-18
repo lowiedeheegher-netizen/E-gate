@@ -1,14 +1,231 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>E-gate</title>
-<script>
-  // Privé-platform: ga direct naar dashboard als ingelogd, anders login
-  var t = localStorage.getItem('egate_token');
-  window.location.replace(t ? '/dashboard.html' : '/login.html');
-</script>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>E-gate — Gratis download gates voor artiesten</title>
+<meta name="description" content="De goedkoopste download gate tool voor artiesten. Gratis te beginnen. Bouw je fanbase via SoundCloud, Spotify en Instagram.">
+<link rel="stylesheet" href="/style.css">
+<style>
+.hero-section{text-align:center;padding:80px 20px 60px;max-width:700px;margin:0 auto}
+.hero-eyebrow{font-size:10px;font-weight:700;letter-spacing:5px;text-transform:uppercase;color:var(--accent);margin-bottom:20px}
+.hero-h1{font-family:var(--font-h);font-size:clamp(32px,6vw,60px);font-weight:900;letter-spacing:-2px;line-height:1.05;margin-bottom:20px}
+.hero-h1 span{background:var(--ember-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.hero-sub{font-size:16px;color:var(--text-dim);max-width:480px;margin:0 auto 36px;line-height:1.6}
+.hero-cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.hero-note{font-size:11px;color:var(--text-muted);margin-top:14px}
+.platform-stats{display:flex;gap:32px;justify-content:center;flex-wrap:wrap;padding:40px 20px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:60px}
+.ps-item{text-align:center}
+.ps-num{font-family:var(--font-h);font-size:28px;font-weight:900;background:var(--ember-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.ps-lbl{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-top:4px}
+.section{max-width:900px;margin:0 auto;padding:0 20px 80px}
+.section-eyebrow{font-size:10px;font-weight:700;letter-spacing:5px;text-transform:uppercase;color:var(--accent);margin-bottom:12px;text-align:center}
+.section-title{font-family:var(--font-h);font-size:clamp(22px,4vw,36px);font-weight:900;letter-spacing:-1px;text-align:center;margin-bottom:48px}
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px}
+.step-card{background:var(--surface) var(--sheen);border:1px solid var(--border);border-radius:var(--radius);padding:24px}
+.step-num{font-family:var(--font-h);font-size:40px;font-weight:900;background:var(--ember-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px}
+.step-title{font-size:15px;font-weight:700;color:var(--chrome);margin-bottom:8px}
+.step-desc{font-size:13px;color:var(--text-dim);line-height:1.6}
+.features{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.feature{padding:18px;background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:10px}
+.feature-icon{font-size:22px;margin-bottom:10px}
+.feature-title{font-size:13px;font-weight:700;color:var(--chrome);margin-bottom:4px}
+.feature-desc{font-size:12px;color:var(--text-dim);line-height:1.5}
+.pricing-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;max-width:660px;margin:0 auto}
+.price-card{background:var(--surface) var(--sheen);border:1px solid var(--border);border-radius:var(--radius);padding:28px;position:relative}
+.price-card.featured{border-color:var(--accent);background:linear-gradient(180deg,rgba(255,59,0,.04),var(--surface))}
+.featured-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:4px 12px;border-radius:20px}
+.price{font-family:var(--font-h);font-size:42px;font-weight:900;line-height:1;margin:12px 0 4px}
+.price span{font-size:16px;font-weight:400;color:var(--text-dim)}
+.price-sub{font-size:12px;color:var(--text-dim);margin-bottom:20px}
+.price-feat{font-size:13px;color:var(--text);padding:7px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.price-feat:last-of-type{border:none}
+.price-feat .ok{color:var(--green)}
+.price-feat .no{color:var(--border)}
+.vs-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;max-width:600px;margin:0 auto}
+.vs-head{padding:14px;font-size:11px;font-weight:700;text-align:center;border-bottom:1px solid var(--border)}
+.vs-head.egate{background:rgba(255,59,0,.06);color:var(--accent)}
+.vs-row{display:contents}
+.vs-cell{padding:11px 14px;font-size:12px;text-align:center;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text-dim)}
+.vs-cell:not(:last-child){border-right:1px solid var(--border)}
+.vs-cell.egate{background:rgba(255,59,0,.03);color:var(--chrome);font-weight:600}
+.vs-label{padding:11px 14px;font-size:12px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text-dim);font-weight:500}
+.chart-preview{max-width:700px;margin:0 auto}
+.mini-chart-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.mini-rank{font-family:var(--font-h);font-size:18px;font-weight:900;color:var(--border);width:28px;text-align:right;flex-shrink:0}
+.mini-rank.t3{color:var(--accent)}
+.mini-cover{width:40px;height:40px;border-radius:6px;background:#0a0a0c;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:#1f2025}
+.mini-cover img{width:100%;height:100%;object-fit:cover}
+.mini-meta{flex:1;min-width:0}
+.mini-track{font-size:13px;font-weight:700;color:var(--chrome);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-artist{font-size:11px;color:var(--text-dim)}
+.mini-dl{font-family:var(--font-h);font-size:16px;font-weight:900;color:var(--accent);flex-shrink:0}
+footer{border-top:1px solid var(--border);padding:32px 20px;text-align:center}
+.footer-brand{font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:12px}
+.footer-links{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-bottom:16px}
+.footer-links a{font-size:12px;color:var(--text-muted);text-decoration:none;transition:color .15s}
+.footer-links a:hover{color:var(--chrome)}
+.footer-copy{font-size:11px;color:var(--border)}
+</style>
 </head>
-<body></body>
+<body>
+<nav class="nav">
+  <a class="nav-brand" href="/">E<span style="color:var(--text-muted)">-</span>GATE</a>
+  <div class="nav-links">
+    <a href="/charts.html" class="nav-link">Top 100</a>
+    <a href="/login.html" class="nav-link">Inloggen</a>
+    <a href="/register.html" class="btn btn--primary btn--sm">Gratis starten</a>
+  </div>
+</nav>
+
+<div class="hero-section">
+  <div class="hero-eyebrow">Download gates voor artiesten</div>
+  <h1 class="hero-h1">Bouw je fanbase.<br><span>Download voor download.</span></h1>
+  <p class="hero-sub">Fans volgen jou op SoundCloud, Spotify of Instagram — jij geeft ze een gratis track. Simpeler dan Hypeddit. Goedkoper dan Toneden. Beter dan allebei.</p>
+  <div class="hero-cta">
+    <a href="/register.html" class="btn btn--primary" style="padding:14px 28px;font-size:15px">Gratis starten →</a>
+    <a href="/charts.html" class="btn btn--ghost" style="padding:14px 28px;font-size:15px">Bekijk Top 100</a>
+  </div>
+  <div class="hero-note">14 dagen gratis. Daarna €2/maand. Altijd opzegbaar.</div>
+</div>
+
+<div class="platform-stats" id="platform-stats">
+  <div class="ps-item"><div class="ps-num" id="stat-gates">—</div><div class="ps-lbl">Actieve gates</div></div>
+  <div class="ps-item"><div class="ps-num" id="stat-downloads">—</div><div class="ps-lbl">Downloads</div></div>
+  <div class="ps-item"><div class="ps-num" id="stat-artists">—</div><div class="ps-lbl">Artiesten</div></div>
+</div>
+
+<div class="section">
+  <div class="section-eyebrow">Hoe het werkt</div>
+  <div class="section-title">3 stappen. Klaar.</div>
+  <div class="steps">
+    <div class="step-card"><div class="step-num">01</div><div class="step-title">Upload je track</div><div class="step-desc">WAV, MP3, FLAC of AIFF. Tot 350MB. Voeg coverart toe en stel je stappen in.</div></div>
+    <div class="step-card"><div class="step-num">02</div><div class="step-title">Deel je link</div><div class="step-desc">Zet de link in je bio, story of post. Fans klikken — en volgen jou automatisch.</div></div>
+    <div class="step-card"><div class="step-num">03</div><div class="step-title">Groei je fanbase</div><div class="step-desc">Elke download = een follower, e-mailadres en Spotify-luisteraar. Jij houdt de data.</div></div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-eyebrow">Features</div>
+  <div class="section-title">Alles wat je nodig hebt</div>
+  <div class="features">
+    <div class="feature"><div class="feature-icon">🎵</div><div class="feature-title">SoundCloud follow + comment</div><div class="feature-desc">Fans volgen jou en laten een comment achter op jouw track.</div></div>
+    <div class="feature"><div class="feature-icon">🎧</div><div class="feature-title">Spotify follow + save</div><div class="feature-desc">Automatische verificatie via de Spotify API.</div></div>
+    <div class="feature"><div class="feature-icon">📸</div><div class="feature-title">Instagram follow</div><div class="feature-desc">Fans openen jouw profiel en bevestigen zelf.</div></div>
+    <div class="feature"><div class="feature-icon">🔥</div><div class="feature-title">Top 100 chart</div><div class="feature-desc">Jouw track staat in de publieke top 100 van meest gedownloade tunes.</div></div>
+    <div class="feature"><div class="feature-icon">🔗</div><div class="feature-title">Referral systeem</div><div class="feature-desc">Fans delen en verdienen een exclusieve track als beloning.</div></div>
+    <div class="feature"><div class="feature-icon">⏱</div><div class="feature-title">Countdown release</div><div class="feature-desc">Bouw hype op met een live afteller voor je release.</div></div>
+    <div class="feature"><div class="feature-icon">🔐</div><div class="feature-title">Secret code</div><div class="feature-desc">Shout een code live op een event. Exclusief voor mensen die erbij waren.</div></div>
+    <div class="feature"><div class="feature-icon">📊</div><div class="feature-title">Statistieken</div><div class="feature-desc">Views, downloads, conversie, geo-data en referrers — alles inzichtelijk.</div></div>
+    <div class="feature"><div class="feature-icon">📧</div><div class="feature-title">Mailing list export</div><div class="feature-desc">Download alle e-mailadressen als CSV voor je nieuwsbrief.</div></div>
+    <div class="feature"><div class="feature-icon">🖼</div><div class="feature-title">Embed widget</div><div class="feature-desc">Plak de gate op je eigen website met één regel code.</div></div>
+    <div class="feature"><div class="feature-icon">💬</div><div class="feature-title">Welkomstbericht</div><div class="feature-desc">Schrijf een persoonlijk bericht dat fans zien na de download.</div></div>
+    <div class="feature"><div class="feature-icon">🌍</div><div class="feature-title">Geo & referrer data</div><div class="feature-desc">Zie uit welk land je fans komen en via welk platform ze binnenstromen.</div></div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-eyebrow">Vergelijking</div>
+  <div class="section-title">Goedkoper. Beter.</div>
+  <div class="vs-grid" style="margin-bottom:48px">
+    <div class="vs-head egate">E-GATE</div>
+    <div class="vs-head">Hypeddit</div>
+    <div class="vs-head">Toneden</div>
+    <div class="vs-label">Prijs</div><div class="vs-cell egate">€2/maand</div><div class="vs-cell">$6.99/maand</div><div class="vs-cell">$7.99/maand</div>
+    <div class="vs-label">Gratis plan</div><div class="vs-cell egate">✓ 1 gate altijd gratis</div><div class="vs-cell">Beperkt</div><div class="vs-cell">Nee</div>
+    <div class="vs-label">Referral systeem</div><div class="vs-cell egate">✓</div><div class="vs-cell">—</div><div class="vs-cell">—</div>
+    <div class="vs-label">Secret code</div><div class="vs-cell egate">✓</div><div class="vs-cell">—</div><div class="vs-cell">—</div>
+    <div class="vs-label">Countdown timer</div><div class="vs-cell egate">✓</div><div class="vs-cell">✓</div><div class="vs-cell">—</div>
+    <div class="vs-label">Top 100 chart</div><div class="vs-cell egate">✓</div><div class="vs-cell">—</div><div class="vs-cell">—</div>
+    <div class="vs-label">Embed widget</div><div class="vs-cell egate">✓</div><div class="vs-cell">—</div><div class="vs-cell">✓</div>
+  </div>
+
+  <div class="pricing-grid">
+    <div class="price-card">
+      <div style="font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--text-dim);margin-bottom:8px">FREE</div>
+      <div class="price">€0<span>/maand</span></div>
+      <div class="price-sub">Voor altijd gratis</div>
+      <div class="price-feat"><span class="ok">✓</span> 1 download gate</div>
+      <div class="price-feat"><span class="ok">✓</span> SoundCloud, Spotify, Instagram</div>
+      <div class="price-feat"><span class="ok">✓</span> Mailing list export</div>
+      <div class="price-feat"><span class="no">—</span> Onbeperkte gates</div>
+      <div class="price-feat"><span class="no">—</span> Top 100 chart</div>
+      <div class="price-feat"><span class="no">—</span> Referral systeem</div>
+      <a href="/register.html" class="btn btn--ghost" style="width:100%;margin-top:20px;display:block;text-align:center;padding:12px">Start gratis →</a>
+    </div>
+    <div class="price-card featured">
+      <div class="featured-badge">POPULAIR</div>
+      <div style="font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:8px">PRO</div>
+      <div class="price">€2<span>/maand</span></div>
+      <div class="price-sub">14 dagen gratis proberen</div>
+      <div class="price-feat"><span class="ok">✓</span> Onbeperkte gates</div>
+      <div class="price-feat"><span class="ok">✓</span> Top 100 chart zichtbaarheid</div>
+      <div class="price-feat"><span class="ok">✓</span> Referral systeem</div>
+      <div class="price-feat"><span class="ok">✓</span> Countdown + secret code</div>
+      <div class="price-feat"><span class="ok">✓</span> Geo & referrer statistieken</div>
+      <div class="price-feat"><span class="ok">✓</span> Embed widget</div>
+      <a href="/register.html" class="btn btn--primary" style="width:100%;margin-top:20px;display:block;text-align:center;padding:12px">14 dagen gratis starten →</a>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-eyebrow">Live data</div>
+  <div class="section-title">🔥 Top downloads nu</div>
+  <div class="chart-preview" id="mini-chart">
+    <div style="text-align:center;color:var(--text-dim);padding:20px">Laden...</div>
+  </div>
+  <div style="text-align:center;margin-top:20px">
+    <a href="/charts.html" class="btn btn--ghost">Bekijk volledige Top 100 →</a>
+  </div>
+</div>
+
+<footer>
+  <div class="footer-brand">E-GATE</div>
+  <div class="footer-links">
+    <a href="/register.html">Registreren</a>
+    <a href="/login.html">Inloggen</a>
+    <a href="/charts.html">Top 100</a>
+  </div>
+  <div class="footer-copy">© 2025 E-gate — Gebouwd door Low E</div>
+</footer>
+
+<script>
+(function(){
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function fmt(n){if(n>=1000000)return(n/1000000).toFixed(1)+'M';if(n>=1000)return(n/1000).toFixed(1)+'K';return String(n);}
+
+  // Platform stats
+  fetch('/api/platform-stats').then(function(r){return r.json();}).then(function(d){
+    document.getElementById('stat-gates').textContent=fmt(d.total_gates||0);
+    document.getElementById('stat-downloads').textContent=fmt(d.total_downloads||0);
+    document.getElementById('stat-artists').textContent=fmt(d.total_artists||0);
+  }).catch(function(){});
+
+  // Mini chart (top 5)
+  fetch('/api/charts?limit=5').then(function(r){return r.json();}).then(function(data){
+    var chart=document.getElementById('mini-chart');
+    var results=data.results||[];
+    if(!results.length){chart.innerHTML='<div style="text-align:center;color:var(--text-dim);padding:20px">Nog geen downloads. Wees de eerste!</div>';return;}
+    chart.innerHTML='';
+    results.forEach(function(r,i){
+      var cover=r.cover_art?'<img src="/uploads/covers/'+esc(r.cover_art)+'" alt="">':'<div>'+((r.artist_name||'?')[0].toUpperCase())+'</div>';
+      var row=document.createElement('a');
+      row.href='/gate/'+r.slug;
+      row.style.display='flex';
+      row.style.textDecoration='none';
+      row.innerHTML=
+        '<div class="mini-chart-row" style="width:100%;display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)">'+
+          '<div class="mini-rank'+(i<3?' t3':'')+'">'+( i+1)+'</div>'+
+          '<div class="mini-cover">'+cover+'</div>'+
+          '<div class="mini-meta"><div class="mini-track">'+esc(r.track_name)+'</div><div class="mini-artist">'+esc(r.artist_name)+'</div></div>'+
+          '<div class="mini-dl">'+r.downloads_30d+'</div>'+
+        '</div>';
+      chart.appendChild(row);
+    });
+  }).catch(function(){document.getElementById('mini-chart').innerHTML='';});
+}());
+</script>
+<script src="/chrome-bg.js"></script>
+</body>
 </html>

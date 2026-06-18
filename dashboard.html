@@ -239,6 +239,18 @@
       const u = await r.json();
       const banner = document.getElementById('sub-banner');
       if (!banner) return;
+      // Email verification banner (shown first if not verified)
+      if (u.role !== 'admin' && u.email_verified === false) {
+        const verifyBanner = document.createElement('div');
+        verifyBanner.className = 'sub-banner trial';
+        verifyBanner.style.marginBottom = '10px';
+        verifyBanner.innerHTML = '<div><div class="sub-banner-text">📧 Bevestig je e-mailadres</div><div class="sub-banner-sub">Check je inbox voor de bevestigingsmail.</div></div><button class="btn btn--ghost btn--sm" id="resend-verify-btn">Opnieuw versturen</button>';
+        banner.parentNode.insertBefore(verifyBanner, banner);
+        document.getElementById('resend-verify-btn').addEventListener('click', function() {
+          this.textContent = 'Verstuurd ✓'; this.disabled = true;
+          fetch('/api/auth/send-verification', { method:'POST', headers:{ Authorization:'Bearer '+token } }).catch(()=>{});
+        });
+      }
       if (u.subscription_status === 'trial' && u.trial_days_left !== null) {
         const d = u.trial_days_left;
         banner.className = 'sub-banner trial';
@@ -291,6 +303,16 @@
     var qrBtn = e.target.closest('.qr-btn');
     if (qrBtn) {
       openQrModal(qrBtn.dataset.url, qrBtn.dataset.name);
+      return;
+    }
+
+    var embedBtn = e.target.closest('.embed-btn');
+    if (embedBtn) {
+      var slug = embedBtn.dataset.slug;
+      var embedCode = '<iframe src="' + window.location.origin + '/embed/' + slug + '" width="100%" height="700" frameborder="0" scrolling="no" allow="autoplay"></iframe>';
+      navigator.clipboard.writeText(embedCode).then(function() {
+        showToast('✓ Embed code gekopieerd!');
+      }).catch(function() { showToast('Embed: ' + embedCode); });
       return;
     }
 

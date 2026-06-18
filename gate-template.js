@@ -16,6 +16,8 @@ function gatePage(c) {
 <title>${esc(c.artist)} \u2014 ${esc(c.track)} | Free Download</title>
 <meta property="og:title" content="${esc(c.artist)} \u2014 ${esc(c.track)} | Free Download">
 <meta property="og:description" content="Download '${esc(c.track)}' for free. Complete the steps to unlock it.">
+${c.cover ? `<meta property="og:image" content="${esc(c.cover)}">` : ''}
+<meta property="og:type" content="music.song">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -184,6 +186,22 @@ body::after{content:'';position:fixed;top:0;bottom:0;left:62%;width:1px;z-index:
 .rec-track{font-size:12px;font-weight:700;color:var(--chrome);line-height:1.3;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rec-artist{font-size:11px;color:var(--muted-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
+
+/* ── Light mode ───────────────────────────────────────── */
+body.light{--bg:#f4f5f7;--bg-card:#ffffff;--border:#dde0e6;--muted:#9a9ca4;--muted-2:#6a6c74;--text:#1a1b22;--chrome:#2a2c35}
+body.light .card{background:#fff;border-color:#dde0e6}
+body.light .field-input{background:#f8f9fb;border-color:#dde0e6;color:#1a1b22}
+body.light .topbar{background:rgba(255,255,255,.85);border-color:#dde0e6}
+.theme-toggle{background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:13px;color:var(--muted-2);transition:color .15s,border-color .15s}
+.theme-toggle:hover{color:var(--chrome);border-color:var(--chrome)}
+/* ── Embed mode ───────────────────────────────────────── */
+body.embed-mode .topbar{display:none}
+body.embed-mode{background:transparent!important}
+body.embed-mode::before,body.embed-mode::after{display:none}
+body.embed-mode .page-col{border:none;min-height:auto}
+/* ── Welcome message ─────────────────────────────────── */
+.welcome-msg{margin-top:16px;padding:14px 16px;background:rgba(255,59,0,.04);border:1px solid rgba(255,59,0,.1);border-radius:10px;font-size:13px;color:var(--chrome);line-height:1.6;white-space:pre-line}
+
 .egate-credit{margin-top:28px;text-align:center}
 .egate-credit a{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--border);text-decoration:none;font-weight:700;transition:color .2s}
 .egate-credit a:hover{color:var(--muted)}
@@ -199,7 +217,10 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid #ff5a
   <div class="page-col">
   <div class="topbar">
     <span class="brand" id="topbar-brand"></span>
+    <div style="display:flex;align-items:center;gap:8px">
+    <button class="theme-toggle" id="theme-toggle" title="Wissel thema">☀</button>
     <a class="egate-badge" href="/" target="_blank" rel="noopener">E-GATE</a>
+  </div>
   </div>
   <div class="hero">
     <div class="cover" id="cover">
@@ -637,8 +658,9 @@ function maybeSubmitFinal() {
   saveState();
   if (!CONFIG.submitUrl) return;
 
-  // Read referral code from URL if present
+  // Read referral code and referrer from URL/document
   var urlRef = new URLSearchParams(window.location.search).get('ref') || null;
+  var pageReferrer = document.referrer || null;
 
   fetch(CONFIG.submitUrl, {
     method:'POST',
@@ -651,7 +673,8 @@ function maybeSubmitFinal() {
       ig_username:      null,
       spotify_verified: !!(doneVia.sp_follow === 'spotify' || doneVia.sp_save === 'spotify'),
       secret_code:      userData.secretCode  || null,
-      ref_code:         urlRef
+      ref_code:         urlRef,
+      referrer:         pageReferrer
     })
   })
   .then(function(r){ return r.ok ? r.json() : Promise.reject(r.status); })
@@ -1172,6 +1195,37 @@ document.getElementById('download-link').addEventListener('click', function() {
 //  INIT
 // ============================================================
 async function init() {
+  // ── Embed mode ─────────────────────────────────────────
+  if (CONFIG.embed) {
+    document.body.classList.add('embed-mode');
+  }
+
+  // ── Theme toggle ───────────────────────────────────────
+  var savedTheme = localStorage.getItem('egate_theme');
+  if (savedTheme === 'light') document.body.classList.add('light');
+  var themeBtn = document.getElementById('theme-toggle');
+  if (themeBtn) {
+    themeBtn.textContent = document.body.classList.contains('light') ? '🌙' : '☀';
+    themeBtn.addEventListener('click', function() {
+      var isLight = document.body.classList.toggle('light');
+      localStorage.setItem('egate_theme', isLight ? 'light' : 'dark');
+      themeBtn.textContent = isLight ? '🌙' : '☀';
+    });
+  }
+
+  // ── Welcome message (shown after unlock) ───────────────
+  if (CONFIG.welcome_message) {
+    var dlNote = document.getElementById('dl-note');
+    if (dlNote) {
+      var msgDiv = document.createElement('div');
+      msgDiv.className = 'welcome-msg';
+      msgDiv.textContent = CONFIG.welcome_message;
+      msgDiv.style.display = 'none';
+      msgDiv.id = 'welcome-msg-box';
+      dlNote.parentNode.insertBefore(msgDiv, dlNote.nextSibling);
+    }
+  }
+
   // ── Countdown ──────────────────────────────────────────
   if (CONFIG.release_at) {
     var releaseMs = Date.parse(CONFIG.release_at);

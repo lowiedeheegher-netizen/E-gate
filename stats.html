@@ -62,6 +62,13 @@ tbody tr:hover { background:rgba(255,255,255,.02); }
   pointer-events:none; opacity:0; transition:opacity .15s;
   white-space:nowrap; z-index:10;
 }
+
+@media print {
+  .nav,.page-head button,.btn { display:none!important; }
+  .panel { break-inside:avoid; }
+  body { background:#fff!important; color:#000!important; }
+}
+.export-row { display:flex; gap:8px; margin-bottom:20px; flex-wrap:wrap; }
 </style>
 </head>
 <body>
@@ -152,6 +159,25 @@ tbody tr:hover { background:rgba(255,255,255,.02); }
         </tbody>
       </table>
     </div>
+  </div>
+
+
+  <!-- Geo breakdown -->
+  <div class="panel" id="geo-panel" style="display:none">
+    <div class="panel-head"><span class="panel-title">🌍 Downloads per land</span></div>
+    <div style="padding:20px" id="geo-body"></div>
+  </div>
+
+  <!-- Referrer breakdown -->
+  <div class="panel" id="ref-panel" style="display:none">
+    <div class="panel-head"><span class="panel-title">📡 Herkomst van fans</span></div>
+    <div style="padding:20px" id="ref-body"></div>
+  </div>
+
+  <!-- Export buttons -->
+  <div class="export-row">
+    <a id="csv-link" class="btn btn--ghost btn--sm" href="/api/mailinglist.csv" download>⬇ Download mailinglist CSV</a>
+    <button class="btn btn--ghost btn--sm" onclick="window.print()">🖨 Afdrukken / PDF</button>
   </div>
 
 </div>
@@ -283,6 +309,39 @@ tbody tr:hover { background:rgba(255,255,255,.02); }
     svg.addEventListener('mouseleave', function() { tooltip.style.opacity = 0; });
   }
 
+
+  async function loadGeo() {
+    try {
+      const r = await fetch('/api/stats/geo', { headers:{ Authorization:'Bearer '+token } });
+      const data = await r.json();
+      if (!data.length) return;
+      const body = document.getElementById('geo-body');
+      const max = Math.max(...data.map(d=>d.cnt));
+      const flags = { NL:'🇳🇱',BE:'🇧🇪',DE:'🇩🇪',FR:'🇫🇷',GB:'🇬🇧',US:'🇺🇸',AU:'🇦🇺',CA:'🇨🇦',IT:'🇮🇹',ES:'🇪🇸',SE:'🇸🇪',DK:'🇩🇰',NO:'🇳🇴',FI:'🇫🇮',PL:'🇵🇱',PT:'🇵🇹',BR:'🇧🇷',MX:'🇲🇽',AR:'🇦🇷',ZA:'🇿🇦',JP:'🇯🇵',KR:'🇰🇷',IN:'🇮🇳',CN:'🇨🇳' };
+      body.innerHTML = data.map(function(d) {
+        const pct = max > 0 ? Math.round((d.cnt/max)*100) : 0;
+        const flag = flags[d.country_code]||'🌐';
+        return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:13px;color:var(--text)">' + flag + ' ' + esc(d.country_code) + '</span><span style="font-size:12px;font-weight:700;color:var(--chrome)">' + d.cnt + '</span></div><div class="bar" style="height:6px"><div class="bar-fill" style="width:' + pct + '%"></div></div></div>';
+      }).join('');
+      document.getElementById('geo-panel').style.display='block';
+    } catch(e) {}
+  }
+
+  async function loadReferrers() {
+    try {
+      const r = await fetch('/api/stats/referrers', { headers:{ Authorization:'Bearer '+token } });
+      const data = await r.json();
+      if (!data.length) return;
+      const body = document.getElementById('ref-body');
+      const max = Math.max(...data.map(d=>d.cnt));
+      body.innerHTML = data.map(function(d) {
+        const pct = max > 0 ? Math.round((d.cnt/max)*100) : 0;
+        return '<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:13px;color:var(--text)">' + esc(d.referrer) + '</span><span style="font-size:12px;font-weight:700;color:var(--chrome)">' + d.cnt + '</span></div><div class="bar" style="height:6px"><div class="bar-fill" style="width:' + pct + '%"></div></div></div>';
+      }).join('');
+      document.getElementById('ref-panel').style.display='block';
+    } catch(e) {}
+  }
+
   async function load() {
     try {
       var res = await fetch('/api/stats', { headers: { Authorization: 'Bearer ' + token } });
@@ -297,6 +356,8 @@ tbody tr:hover { background:rgba(255,255,255,.02); }
 
       // Draw timeline chart
       drawTimeline(data.timeline || []);
+      loadGeo();
+      loadReferrers();
       var totalTL = (data.timeline || []).reduce(function(s,d){ return s + d.count; }, 0);
       var tlLabel = document.getElementById('timeline-total-label');
       if (tlLabel) tlLabel.textContent = totalTL + ' download' + (totalTL !== 1 ? 's' : '');
