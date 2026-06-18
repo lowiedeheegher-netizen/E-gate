@@ -1,10 +1,93 @@
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>E-gate</title>
-<script>window.location.replace('/login.html');</script>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Registreer — E-gate</title>
+<link rel="stylesheet" href="/style.css">
 </head>
-<body></body>
+<body>
+<nav class="nav">
+  <a class="nav-brand" href="/">E<span style="color:var(--text-muted)">-</span>GATE</a>
+</nav>
+
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-brand">E-GATE</div>
+    <div class="auth-title">Gratis starten</div>
+    <div class="auth-sub">14 dagen gratis. Daarna €2/maand.</div>
+
+    <div id="toast" class="toast" style="display:none"></div>
+
+    <div class="field-group">
+      <label class="field-label">Jouw naam</label>
+      <input type="text" id="name" class="field-input" placeholder="Voornaam Achternaam" autocomplete="name">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Artiestennaam</label>
+      <input type="text" id="artist-name" class="field-input" placeholder="bv. Low E" autocomplete="off">
+    </div>
+    <div class="field-group">
+      <label class="field-label">E-mailadres</label>
+      <input type="email" id="email" class="field-input" placeholder="jij@voorbeeld.com" autocomplete="email">
+    </div>
+    <div class="field-group">
+      <label class="field-label">Wachtwoord</label>
+      <input type="password" id="password" class="field-input" placeholder="Minimaal 8 tekens" autocomplete="new-password">
+    </div>
+
+    <button class="btn btn--primary" id="register-btn" style="width:100%;margin-top:8px;padding:14px">
+      Account aanmaken →
+    </button>
+
+    <div class="auth-footer">
+      Al een account? <a href="/login.html">Inloggen</a>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  function showToast(msg,type){
+    var t=document.getElementById('toast');
+    t.textContent=msg;t.style.display='block';
+    t.style.background=type==='error'?'rgba(248,113,113,.15)':'rgba(74,222,128,.15)';
+    setTimeout(function(){t.style.display='none';},5000);
+  }
+
+  document.getElementById('register-btn').addEventListener('click', function(){
+    var btn=this;
+    var name=document.getElementById('name').value.trim();
+    var artistName=document.getElementById('artist-name').value.trim();
+    var email=document.getElementById('email').value.trim();
+    var password=document.getElementById('password').value;
+
+    if(!name||!artistName||!email||!password){showToast('Vul alle velden in.','error');return;}
+    if(password.length<8){showToast('Wachtwoord moet minstens 8 tekens zijn.','error');return;}
+
+    btn.textContent='Aanmaken...';btn.disabled=true;
+
+    fetch('/api/auth/register',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:name,artist_name:artistName,email:email,password:password})
+    })
+    .then(function(r){return r.json().then(function(d){return{ok:r.ok,data:d};});})
+    .then(function(res){
+      if(!res.ok){showToast(res.data.error||'Registratie mislukt.','error');btn.disabled=false;btn.textContent='Account aanmaken →';return;}
+      localStorage.setItem('egate_token',res.data.token);
+      localStorage.setItem('egate_name',res.data.name);
+      window.location.href='/dashboard.html';
+    })
+    .catch(function(){showToast('Verbindingsfout. Probeer opnieuw.','error');btn.disabled=false;btn.textContent='Account aanmaken →';});
+  });
+
+  // Enter key
+  document.querySelectorAll('input').forEach(function(inp){
+    inp.addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('register-btn').click();});
+  });
+}());
+</script>
+<script src="/chrome-bg.js"></script>
+</body>
 </html>

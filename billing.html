@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Abonnement — E-gate</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+.billing-hero{text-align:center;padding:48px 20px 32px}
+.plan-card{max-width:440px;margin:0 auto 24px;background:var(--surface) var(--sheen);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.plan-head{padding:24px;background:linear-gradient(135deg,rgba(255,59,0,.06),rgba(255,90,31,.03));border-bottom:1px solid var(--border)}
+.plan-price{font-family:var(--font-h);font-size:48px;font-weight:900;line-height:1}
+.plan-price span{font-size:18px;font-weight:400;color:var(--text-dim)}
+.plan-body{padding:24px}
+.plan-feature{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;border-bottom:1px solid var(--border)}
+.plan-feature:last-child{border:none}
+.plan-feature .ico{color:var(--green);font-size:14px;flex-shrink:0}
+.status-badge{display:inline-block;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
+.status-active{background:rgba(74,222,128,.1);color:var(--green);border:1px solid rgba(74,222,128,.2)}
+.status-trial{background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.2)}
+.status-canceled{background:rgba(248,113,113,.1);color:#f87171;border:1px solid rgba(248,113,113,.2)}
+.faq{max-width:560px;margin:0 auto 60px}
+.faq h3{font-size:13px;font-weight:700;color:var(--chrome);margin-bottom:4px}
+.faq p{font-size:12px;color:var(--text-dim);line-height:1.6;margin-bottom:20px}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-brand" href="/">E<span style="color:var(--text-muted)">-</span>GATE</a>
+  <div class="nav-links">
+    <a href="/dashboard.html" class="nav-link">Dashboard</a>
+  </div>
+</nav>
+
+<div class="page-wrap" style="padding-top:0">
+  <div class="billing-hero">
+    <h1 style="font-family:var(--font-h);font-size:28px;font-weight:900;margin-bottom:8px">Jouw abonnement</h1>
+    <p id="status-line" style="font-size:13px;color:var(--text-dim)">Laden...</p>
+  </div>
+
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <div class="plan-card" id="plan-card">
+    <div class="plan-head">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:6px">E-GATE PRO</div>
+          <div class="plan-price">€2<span>/maand</span></div>
+        </div>
+        <div id="status-badge"></div>
+      </div>
+    </div>
+    <div class="plan-body">
+      <div class="plan-feature"><span class="ico">✓</span> Onbeperkt download gates</div>
+      <div class="plan-feature"><span class="ico">✓</span> SoundCloud, Spotify & Instagram integratie</div>
+      <div class="plan-feature"><span class="ico">✓</span> Referral systeem met beloningen</div>
+      <div class="plan-feature"><span class="ico">✓</span> Statistieken & mailing list export</div>
+      <div class="plan-feature"><span class="ico">✓</span> Top 100 chart zichtbaarheid</div>
+      <div class="plan-feature"><span class="ico">✓</span> Countdown, limieten & geheime codes</div>
+      <div style="margin-top:20px" id="cta-area">
+        <div style="text-align:center;color:var(--text-dim);font-size:13px">Laden...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="faq" style="max-width:560px;margin:0 auto 60px;padding:0 20px">
+    <h3>Kan ik opzeggen wanneer ik wil?</h3>
+    <p>Ja. Je kan je abonnement op elk moment opzeggen via de Stripe-portal. Je behoudt toegang tot het einde van de betaalde periode.</p>
+    <h3>Wat gebeurt er als ik niet betaalt?</h3>
+    <p>Je bestaande gates blijven actief voor fans. Je kan alleen geen nieuwe gates aanmaken totdat je abonnement hernieuwd wordt.</p>
+    <h3>Hoe betaal ik?</h3>
+    <p>Via Stripe — creditcard, debitcard of iDEAL. Veilig en automatisch maandelijks.</p>
+  </div>
+</div>
+
+<script>
+(function() {
+  var token = localStorage.getItem('egate_token');
+  if (!token) { window.location.href='/login.html'; return; }
+
+  var params = new URLSearchParams(window.location.search);
+  if (params.get('success')) showToast('✓ Abonnement geactiveerd! Welkom bij E-gate Pro.', 'success');
+  if (params.get('canceled')) showToast('Betaling geannuleerd.', '');
+
+  function showToast(msg, type) {
+    var t = document.getElementById('toast');
+    t.textContent = msg; t.style.display='block';
+    if (type==='success') t.style.background='rgba(74,222,128,.15)';
+    setTimeout(function(){ t.style.display='none'; }, 5000);
+  }
+
+  fetch('/api/billing/status', { headers:{ Authorization:'Bearer '+token } })
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      var badge = document.getElementById('status-badge');
+      var cta   = document.getElementById('cta-area');
+      var line  = document.getElementById('status-line');
+
+      if (d.status==='active') {
+        badge.innerHTML = '<span class="status-badge status-active">Actief</span>';
+        line.textContent = 'Je abonnement is actief. Bedankt!';
+        cta.innerHTML = '<button class="btn btn--ghost" id="portal-btn" style="width:100%">Beheer abonnement →</button>';
+        document.getElementById('portal-btn').addEventListener('click', function() {
+          this.textContent='Laden...';this.disabled=true;
+          fetch('/api/billing/portal',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}})
+            .then(function(r){return r.json();})
+            .then(function(d){if(d.url)window.location.href=d.url;else showToast('Kon portaal niet openen.','');})
+            .catch(function(){showToast('Fout. Probeer opnieuw.','');});
+        });
+      } else if (d.status==='trial') {
+        badge.innerHTML = '<span class="status-badge status-trial">Trial — '+d.trial_days_left+' dagen</span>';
+        line.textContent = 'Je hebt nog '+d.trial_days_left+' gratis '+(d.trial_days_left===1?'dag':'dagen') +'. Daarna €2/maand.';
+        cta.innerHTML = '<button class="btn btn--primary" id="subscribe-btn" style="width:100%;padding:14px">Abonneer voor €2/maand →</button><div style="font-size:11px;color:var(--text-dim);text-align:center;margin-top:8px">Geen verborgen kosten. Altijd opzegbaar.</div>';
+        document.getElementById('subscribe-btn').addEventListener('click', startCheckout);
+      } else if (d.status==='canceled' || d.status==='past_due') {
+        badge.innerHTML = '<span class="status-badge status-canceled">'+(d.status==='past_due'?'Betaling mislukt':'Opgezegd')+'</span>';
+        line.textContent = d.status==='past_due' ? 'Betaling kon niet worden verwerkt.' : 'Je abonnement is opgezegd.';
+        cta.innerHTML = '<button class="btn btn--primary" id="subscribe-btn" style="width:100%;padding:14px">Opnieuw abonneren →</button>';
+        document.getElementById('subscribe-btn').addEventListener('click', startCheckout);
+      } else {
+        badge.innerHTML = '<span class="status-badge status-trial">'+d.status+'</span>';
+        cta.innerHTML = '<button class="btn btn--primary" id="subscribe-btn" style="width:100%;padding:14px">Abonneer voor €2/maand →</button>';
+        document.getElementById('subscribe-btn').addEventListener('click', startCheckout);
+      }
+    })
+    .catch(function(){ document.getElementById('status-line').textContent='Kon abonnementsstatus niet laden.'; });
+
+  function startCheckout() {
+    var btn = document.getElementById('subscribe-btn');
+    btn.textContent='Doorsturen naar Stripe...'; btn.disabled=true;
+    fetch('/api/billing/checkout',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.url){window.location.href=d.url;}
+        else{showToast(d.error||'Kon checkout niet starten.','');btn.disabled=false;btn.textContent='Abonneer voor €2/maand →';}
+      })
+      .catch(function(){showToast('Fout. Probeer opnieuw.','');btn.disabled=false;});
+  }
+}());
+</script>
+<script src="/chrome-bg.js"></script>
+</body>
+</html>

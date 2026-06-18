@@ -1,7 +1,7 @@
 {
   "name": "e-gate",
-  "version": "2.0.0",
-  "description": "E-gate — Free download gates for artists",
+  "version": "3.0.0",
+  "description": "E-gate — Download gate platform for artists",
   "main": "server.js",
   "scripts": { "start": "node server.js" },
   "dependencies": {
@@ -10,6 +10,7 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.9",
+    "stripe": "^14.21.0",
     "ws": "^8.18.0"
   },
   "engines": { "node": ">=20" }

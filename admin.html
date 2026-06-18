@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Admin — E-gate</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+.admin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:28px}
+.stat-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center}
+.stat-num{font-family:var(--font-h);font-size:32px;font-weight:900;background:var(--ember-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.stat-lbl{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-top:4px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:10px 12px;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);border-bottom:1px solid var(--border)}
+td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--chrome)}
+tr:hover td{background:rgba(255,255,255,.02)}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.badge-active{background:rgba(74,222,128,.12);color:var(--green)}
+.badge-trial{background:rgba(251,191,36,.12);color:#fbbf24}
+.badge-canceled{background:rgba(248,113,113,.12);color:#f87171}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-brand" href="/">E<span style="color:var(--text-muted)">-</span>GATE</a>
+  <div class="nav-links">
+    <a href="/dashboard.html" class="nav-link">Dashboard</a>
+    <a href="/charts.html" class="nav-link">Top 100</a>
+  </div>
+</nav>
+
+<div class="page-wrap">
+  <div class="page-head">
+    <div>
+      <div class="page-title">Admin</div>
+      <div class="page-sub">Overzicht van alle artiesten en inkomsten</div>
+    </div>
+    <button class="btn btn--ghost btn--sm" id="refresh-btn">↻ Vernieuwen</button>
+  </div>
+
+  <div id="toast" class="toast" style="display:none"></div>
+
+  <!-- Revenue stats -->
+  <div class="panel" style="margin-bottom:20px">
+    <div class="panel-head"><span class="panel-title">💰 Inkomsten</span></div>
+    <div style="padding:20px">
+      <div class="admin-grid" id="revenue-grid">
+        <div class="stat-box"><div class="stat-num">—</div><div class="stat-lbl">Deze maand</div></div>
+        <div class="stat-box"><div class="stat-num">—</div><div class="stat-lbl">Totaal ooit</div></div>
+        <div class="stat-box"><div class="stat-num">—</div><div class="stat-lbl">Actieve abonnementen</div></div>
+        <div class="stat-box"><div class="stat-num">—</div><div class="stat-lbl">Trials</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Artists table -->
+  <div class="panel">
+    <div class="panel-head">
+      <span class="panel-title">🎤 Artiesten</span>
+      <span class="panel-sub" id="users-count"></span>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Artiest</th><th>Email</th><th>Slug</th><th>Status</th><th>Lid sinds</th><th>Actie</th>
+          </tr>
+        </thead>
+        <tbody id="users-body">
+          <tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:24px">Laden...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var token = localStorage.getItem('egate_token');
+  if (!token) { window.location.href='/login.html'; return; }
+
+  function showToast(msg,type){
+    var t=document.getElementById('toast');
+    t.textContent=msg;t.style.display='block';
+    t.style.background=type==='error'?'rgba(248,113,113,.15)':'rgba(74,222,128,.15)';
+    setTimeout(function(){t.style.display='none';},4000);
+  }
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+  function load() {
+    var hdr={Authorization:'Bearer '+token};
+    // Revenue
+    fetch('/api/admin/revenue',{headers:hdr})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        var boxes=document.querySelectorAll('#revenue-grid .stat-box');
+        boxes[0].querySelector('.stat-num').textContent='€'+d.month_revenue_eur;
+        boxes[1].querySelector('.stat-num').textContent='€'+d.total_revenue_eur;
+        boxes[2].querySelector('.stat-num').textContent=d.user_stats?.active||0;
+        boxes[3].querySelector('.stat-num').textContent=d.user_stats?.trial||0;
+      }).catch(function(){});
+
+    // Users
+    fetch('/api/admin/users',{headers:hdr})
+      .then(function(r){return r.json();})
+      .then(function(users){
+        document.getElementById('users-count').textContent=users.length+' artiesten';
+        var tbody=document.getElementById('users-body');
+        if(!users.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--text-dim);padding:24px">Nog geen artiesten geregistreerd.</td></tr>';return;}
+        tbody.innerHTML='';
+        users.forEach(function(u){
+          var statusCls=u.subscription_status==='active'?'badge-active':u.subscription_status==='trial'?'badge-trial':'badge-canceled';
+          var date=new Date(u.created_at).toLocaleDateString('nl-BE',{day:'numeric',month:'short',year:'numeric'});
+          var tr=document.createElement('tr');
+          tr.innerHTML=
+            '<td><strong>'+esc(u.artist_name)+'</strong><br><span style="font-size:11px;color:var(--text-dim)">'+esc(u.name)+'</span></td>'+
+            '<td style="color:var(--text-dim)">'+esc(u.email)+'</td>'+
+            '<td style="font-family:monospace;font-size:11px"><a href="/~'+esc(u.artist_slug)+'" target="_blank" style="color:var(--accent)">'+esc(u.artist_slug)+'</a></td>'+
+            '<td><span class="badge '+statusCls+'">'+esc(u.subscription_status)+'</span></td>'+
+            '<td style="color:var(--text-dim)">'+date+'</td>'+
+            '<td>'+
+              '<button class="btn btn--ghost btn--sm" onclick="activateUser(\''+esc(u.id)+'\',\''+esc(u.artist_name)+'\')" style="margin-right:6px">✓ Gratis</button>'+
+              '<button class="btn btn--danger btn--sm" onclick="deleteUser(\''+esc(u.id)+'\',\''+esc(u.artist_name)+'\')">✕</button>'+
+            '</td>';
+          tbody.appendChild(tr);
+        });
+      }).catch(function(){showToast('Kon artiesten niet laden','error');});
+  }
+
+  window.activateUser=function(id,name){
+    if(!confirm('Geef '+name+' gratis actief abonnement?'))return;
+    fetch('/api/admin/users/'+id+'/subscription',{method:'PATCH',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({status:'active'})})
+      .then(function(){showToast('✓ Abonnement geactiveerd voor '+name);load();})
+      .catch(function(){showToast('Fout','error');});
+  };
+  window.deleteUser=function(id,name){
+    if(!confirm('Verwijder artiest '+name+' en al hun gates? Dit kan niet ongedaan worden gemaakt.'))return;
+    fetch('/api/admin/users/'+id,{method:'DELETE',headers:{Authorization:'Bearer '+token}})
+      .then(function(){showToast('Artiest verwijderd');load();})
+      .catch(function(){showToast('Fout','error');});
+  };
+
+  document.getElementById('refresh-btn').addEventListener('click',load);
+  load();
+}());
+</script>
+<script src="/chrome-bg.js"></script>
+</body>
+</html>

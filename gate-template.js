@@ -165,6 +165,25 @@ body::after{content:'';position:fixed;top:0;bottom:0;left:62%;width:1px;z-index:
 .page-col{max-width:560px;margin:0 auto;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);min-height:100vh;border-left:1px solid rgba(255,255,255,.04);border-right:1px solid rgba(255,255,255,.04)}
 .hero{background:linear-gradient(180deg,rgba(5,5,9,.98) 0%,rgba(5,5,9,.8) 100%)!important}
 
+
+/* ── Recommendations ──────────────────────────────────── */
+.rec-section{margin-top:28px;padding-top:24px;border-top:1px solid var(--border)}
+.rec-title{font-size:9px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:var(--accent);margin-bottom:16px;text-align:center}
+.rec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+.rec-card{display:block;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;overflow:hidden;text-decoration:none;color:inherit;transition:border-color .2s,transform .15s}
+.rec-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.rec-cover{height:110px;background:#0a0a0c;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.rec-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.rec-cover-ph{font-size:28px;font-weight:900;color:#1f2025}
+.rec-preview-btn{position:absolute;bottom:6px;right:6px;width:28px;height:28px;border-radius:50%;background:rgba(255,59,0,.9);border:none;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;transition:transform .15s}
+.rec-preview-btn:hover{transform:scale(1.1)}
+.rec-preview-wrap{padding:0;height:0;overflow:hidden;transition:height .3s}
+.rec-preview-wrap.open{height:166px}
+.rec-preview-wrap iframe{width:100%;height:166px;border:0;display:block}
+.rec-info{padding:10px 12px}
+.rec-track{font-size:12px;font-weight:700;color:var(--chrome);line-height:1.3;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rec-artist{font-size:11px;color:var(--muted-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
 .egate-credit{margin-top:28px;text-align:center}
 .egate-credit a{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--border);text-decoration:none;font-weight:700;transition:color .2s}
 .egate-credit a:hover{color:var(--muted)}
@@ -249,6 +268,11 @@ button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid #ff5a
         <span>\uD83C\uDFB5 Tag us on socials</span><span>\u00B7</span>
         <span>\uD83D\uDD01 Share the track</span><span>\u00B7</span>
         <span>\uD83D\uDD25 Come rave</span>
+      </div>
+      <!-- Recommendations -->
+      <div class="rec-section" id="rec-section" style="display:none">
+        <div class="rec-title">\uD83C\uDFB5 Misschien vind je dit ook leuk</div>
+        <div class="rec-grid" id="rec-grid"></div>
       </div>
     </div>
     <div class="egate-credit"><a href="/" target="_blank" rel="noopener">E-GATE</a></div>
@@ -640,12 +664,73 @@ function maybeSubmitFinal() {
     }
     // Unlock animation
     playUnlockAnimation();
+    // Recommendations
+    if (data && data.similar_gates && data.similar_gates.length) {
+      renderRecommendations(data.similar_gates);
+    }
     // Referral
     if (data && data.referral_code && CONFIG.referral_enabled) {
       showReferral(data.referral_code);
     }
   })
   .catch(function(){ /* silent */ });
+}
+
+// ============================================================
+//  RECOMMENDATIONS
+// ============================================================
+function renderRecommendations(gates) {
+  var section = document.getElementById('rec-section');
+  var grid    = document.getElementById('rec-grid');
+  if (!section || !grid || !gates.length) return;
+
+  grid.innerHTML = '';
+  gates.forEach(function(g) {
+    var coverHtml = g.cover_art
+      ? '<img src="/uploads/covers/' + g.cover_art + '" alt="">'
+      : '<div class="rec-cover-ph">' + (g.artist_name||'?')[0].toUpperCase() + '</div>';
+
+    var previewBtn = g.sc_preview_url
+      ? '<button class="rec-preview-btn" data-url="' + g.sc_preview_url + '" title="Preview">\u25B6</button>' : '';
+    var previewWrap = g.sc_preview_url
+      ? '<div class="rec-preview-wrap" id="rec-preview-' + g.slug + '"><iframe scrolling="no" allow="autoplay"></iframe></div>' : '';
+
+    var card = document.createElement('a');
+    card.className = 'rec-card';
+    card.href = '/gate/' + g.slug;
+    card.innerHTML =
+      '<div class="rec-cover">' + coverHtml + previewBtn + '</div>' +
+      previewWrap +
+      '<div class="rec-info">' +
+        '<div class="rec-track">' + (g.track_name||'').replace(/</g,'&lt;') + '</div>' +
+        '<div class="rec-artist">' + (g.artist_name||'').replace(/</g,'&lt;') + '</div>' +
+      '</div>';
+
+    // Preview button: expand/collapse SoundCloud player
+    if (g.sc_preview_url) {
+      var btn = card.querySelector('.rec-preview-btn');
+      btn.addEventListener('click', function(e) {
+        e.preventDefault(); e.stopPropagation();
+        var wrap  = document.getElementById('rec-preview-' + g.slug);
+        var iframe = wrap.querySelector('iframe');
+        if (wrap.classList.contains('open')) {
+          wrap.classList.remove('open');
+          iframe.src = '';
+          btn.textContent = '\u25B6';
+        } else {
+          wrap.classList.add('open');
+          iframe.src = 'https://w.soundcloud.com/player/?url=' +
+            encodeURIComponent(g.sc_preview_url) +
+            '&color=%23ff3b00&auto_play=true&hide_related=true&show_comments=false&show_user=false&show_reposts=false&visual=false&single_active=true';
+          btn.textContent = '\u23F9';
+        }
+      });
+    }
+
+    grid.appendChild(card);
+  });
+
+  section.style.display = 'block';
 }
 
 // ============================================================

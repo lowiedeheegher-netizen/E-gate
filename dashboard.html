@@ -232,6 +232,26 @@
   });
 
   // Load gates
+  // Check subscription status
+  async function checkSubscription() {
+    try {
+      const r = await fetch('/api/me', { headers:{ Authorization:'Bearer '+token } });
+      const u = await r.json();
+      const banner = document.getElementById('sub-banner');
+      if (!banner) return;
+      if (u.subscription_status === 'trial' && u.trial_days_left !== null) {
+        const d = u.trial_days_left;
+        banner.className = 'sub-banner trial';
+        banner.innerHTML = '<div><div class="sub-banner-text">⏳ Gratis trial — nog <strong>' + d + '</strong> '+(d===1?'dag':'dagen')+'</div><div class="sub-banner-sub">Daarna €2/maand. Je kan altijd opzeggen.</div></div><a href="/billing.html" class="btn btn--primary btn--sm">Abonneer nu</a>';
+        banner.style.display = 'flex';
+      } else if (u.subscription_status === 'canceled' || u.subscription_status === 'past_due') {
+        banner.className = 'sub-banner canceled';
+        banner.innerHTML = '<div><div class="sub-banner-text">⚠️ Abonnement inactief — je kan geen nieuwe gates aanmaken</div></div><a href="/billing.html" class="btn btn--primary btn--sm">Hernieuwen</a>';
+        banner.style.display = 'flex';
+      }
+    } catch(e) {}
+  }
+
   async function loadGates() {
     try {
       var res  = await fetch('/api/gates', { headers: { Authorization: 'Bearer ' + token } });

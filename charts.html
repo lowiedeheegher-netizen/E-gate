@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Top 100 — E-gate</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+.chart-hero{text-align:center;padding:48px 20px 32px}
+.chart-title{font-family:var(--font-h);font-size:36px;font-weight:900;letter-spacing:-1px;margin-bottom:8px}
+.chart-title span{background:var(--ember-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.chart-sub{font-size:13px;color:var(--text-dim);margin-bottom:24px}
+.genre-pills{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px}
+.genre-pill{padding:5px 14px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;border:1px solid var(--border);color:var(--text-dim);cursor:pointer;transition:all .15s;background:transparent}
+.genre-pill:hover,.genre-pill.active{border-color:var(--accent);color:var(--accent);background:rgba(255,59,0,.06)}
+.chart-list{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:6px;padding-bottom:80px}
+.chart-row{display:grid;grid-template-columns:44px 56px 1fr auto;align-items:center;gap:12px;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);text-decoration:none;color:inherit;transition:border-color .15s}
+.chart-row:hover{border-color:var(--accent)}
+.rank{font-family:var(--font-h);font-size:20px;font-weight:900;color:var(--border);text-align:right}
+.rank.top3{color:var(--accent)}
+.chart-cover{width:48px;height:48px;border-radius:6px;object-fit:cover;background:#0a0a0c;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0}
+.chart-cover img{width:100%;height:100%;object-fit:cover}
+.chart-cover-ph{font-size:18px;font-weight:900;color:#1f2025}
+.chart-meta{min-width:0}
+.chart-track{font-weight:700;font-size:14px;color:var(--chrome);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chart-artist{font-size:12px;color:var(--text-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chart-genre{display:inline-block;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);background:rgba(255,255,255,.04);border-radius:4px;padding:2px 6px;margin-top:3px}
+.chart-dl{text-align:right;flex-shrink:0}
+.chart-dl-num{font-family:var(--font-h);font-size:18px;font-weight:900;background:var(--ember-grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.chart-dl-lbl{font-size:9px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase}
+.chart-preview-row{grid-column:1/-1;display:none}
+.chart-preview-row.open{display:block}
+.chart-preview-row iframe{width:100%;height:100px;border:0;border-radius:6px;display:block}
+.chart-row-wrap{display:grid;grid-template-columns:44px 56px 1fr auto;align-items:center;gap:12px;padding:10px 14px;text-decoration:none;color:inherit}
+.chart-entry{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);transition:border-color .15s;overflow:hidden}
+.chart-entry:hover{border-color:var(--accent)}
+.preview-toggle{background:none;border:none;color:var(--accent);font-size:18px;cursor:pointer;padding:4px;transition:transform .15s}
+.preview-toggle:hover{transform:scale(1.2)}
+.updated{text-align:center;font-size:11px;color:var(--text-muted);margin-bottom:20px}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <a class="nav-brand" href="/">E<span style="color:var(--text-muted)">-</span>GATE</a>
+  <div class="nav-links">
+    <a href="/dashboard.html" class="nav-link">Dashboard</a>
+    <a href="/register.html" class="btn btn--primary btn--sm">Gratis starten</a>
+  </div>
+</nav>
+
+<div class="page-wrap" style="padding-top:0;padding-bottom:0">
+  <div class="chart-hero">
+    <div class="chart-title">🔥 <span>Top 100</span></div>
+    <div class="chart-sub">Meest gedownloade tracks van de afgelopen 30 dagen</div>
+    <div class="genre-pills" id="genre-pills">
+      <button class="genre-pill active" data-genre="">Alle genres</button>
+    </div>
+    <div class="updated" id="updated-label"></div>
+  </div>
+
+  <div class="chart-list" id="chart-list">
+    <div class="empty"><div class="ico">⏳</div>Laden...</div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var allResults = [], activeGenre = '';
+
+  function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+  function render(results) {
+    var list = document.getElementById('chart-list');
+    if (!results.length) {
+      list.innerHTML = '<div class="empty"><div class="ico">🎵</div>Nog geen downloads in de afgelopen 30 dagen.</div>';
+      return;
+    }
+    list.innerHTML = '';
+    results.forEach(function(r, i) {
+      var rank = i + 1;
+      var cover = r.cover_art
+        ? '<img src="/uploads/covers/' + esc(r.cover_art) + '" alt="">'
+        : '<div class="chart-cover-ph">' + (r.artist_name||'?')[0].toUpperCase() + '</div>';
+
+      var previewBtn = r.sc_preview_url
+        ? '<button class="preview-toggle" data-slug="' + esc(r.slug) + '" data-url="' + esc(r.sc_preview_url) + '" title="Preview">▶</button>' : '';
+      var previewRow = r.sc_preview_url
+        ? '<div class="chart-preview-row" id="prev-' + esc(r.slug) + '"><iframe scrolling="no" allow="autoplay"></iframe></div>' : '';
+
+      var entry = document.createElement('div');
+      entry.className = 'chart-entry';
+      entry.innerHTML =
+        '<div class="chart-row-wrap">' +
+          '<div class="rank' + (rank<=3?' top3':'') + '">' + rank + '</div>' +
+          '<div class="chart-cover">' + cover + '</div>' +
+          '<div class="chart-meta">' +
+            '<div class="chart-track">' + esc(r.track_name) + '</div>' +
+            '<div class="chart-artist">' + esc(r.artist_name) + '</div>' +
+            (r.genre ? '<span class="chart-genre">' + esc(r.genre) + '</span>' : '') +
+          '</div>' +
+          '<div style="display:flex;align-items:center;gap:10px">' +
+            '<div class="chart-dl"><div class="chart-dl-num">' + r.downloads_30d + '</div><div class="chart-dl-lbl">downloads</div></div>' +
+            previewBtn +
+          '</div>' +
+        '</div>' +
+        previewRow;
+
+      // Click row → go to gate
+      entry.querySelector('.chart-row-wrap').addEventListener('click', function(e) {
+        if (e.target.closest('.preview-toggle')) return;
+        window.location.href = '/gate/' + r.slug;
+      });
+      entry.querySelector('.chart-row-wrap').style.cursor = 'pointer';
+
+      // Preview toggle
+      if (r.sc_preview_url) {
+        entry.querySelector('.preview-toggle').addEventListener('click', function(e) {
+          e.stopPropagation();
+          var wrap   = document.getElementById('prev-' + r.slug);
+          var iframe = wrap.querySelector('iframe');
+          var btn    = this;
+          if (wrap.classList.contains('open')) {
+            wrap.classList.remove('open'); iframe.src=''; btn.textContent='▶';
+          } else {
+            wrap.classList.add('open');
+            iframe.src = 'https://w.soundcloud.com/player/?url=' + encodeURIComponent(r.sc_preview_url) +
+              '&color=%23ff3b00&auto_play=true&hide_related=true&show_comments=false&show_user=false&show_reposts=false&visual=false';
+            btn.textContent='⏹';
+          }
+        });
+      }
+
+      list.appendChild(entry);
+    });
+  }
+
+  function applyFilter() {
+    var filtered = activeGenre ? allResults.filter(function(r){ return r.genre===activeGenre; }) : allResults;
+    render(filtered);
+  }
+
+  fetch('/api/charts?limit=100')
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      allResults = data.results || [];
+      // Build genre pills
+      var genres = [...new Set(allResults.map(function(r){ return r.genre; }).filter(Boolean))].sort();
+      var pills = document.getElementById('genre-pills');
+      genres.forEach(function(g) {
+        var btn = document.createElement('button');
+        btn.className = 'genre-pill';
+        btn.dataset.genre = g;
+        btn.textContent = g;
+        pills.appendChild(btn);
+      });
+
+      pills.addEventListener('click', function(e) {
+        var btn = e.target.closest('.genre-pill');
+        if (!btn) return;
+        pills.querySelectorAll('.genre-pill').forEach(function(b){ b.classList.remove('active'); });
+        btn.classList.add('active');
+        activeGenre = btn.dataset.genre;
+        applyFilter();
+      });
+
+      var upd = new Date(data.updated);
+      document.getElementById('updated-label').textContent = 'Bijgewerkt: ' + upd.toLocaleString('nl-BE');
+      render(allResults);
+    })
+    .catch(function() {
+      document.getElementById('chart-list').innerHTML = '<div class="empty"><div class="ico">⚠️</div>Kon de chart niet laden.</div>';
+    });
+}());
+</script>
+<script src="/chrome-bg.js"></script>
+</body>
+</html>
