@@ -107,6 +107,20 @@
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
+<!-- QR Modal -->
+<div class="qr-modal-overlay" id="qr-modal" style="display:none">
+  <div class="qr-modal-box">
+    <div class="qr-modal-title" id="qr-modal-title">QR Code</div>
+    <div class="qr-modal-sub" id="qr-modal-sub"></div>
+    <div id="qr-container"></div>
+    <div class="qr-actions">
+      <button class="btn btn--primary btn--sm" id="qr-download-btn">Download PNG</button>
+      <button class="btn btn--ghost btn--sm" id="qr-close-btn">Sluiten</button>
+    </div>
+  </div>
+</div>
+
+
 <script>
 (function() {
   // Auth guard
@@ -311,19 +325,6 @@
   loadGates();
 }());
 </script>
-
-<!-- QR Modal -->
-<div class="qr-modal-overlay" id="qr-modal" style="display:none">
-  <div class="qr-modal-box">
-    <div class="qr-modal-title" id="qr-modal-title">QR Code</div>
-    <div class="qr-modal-sub" id="qr-modal-sub"></div>
-    <div id="qr-container"></div>
-    <div class="qr-actions">
-      <button class="btn btn--primary btn--sm" id="qr-download-btn">Download PNG</button>
-      <button class="btn btn--ghost btn--sm" id="qr-close-btn">Sluiten</button>
-    </div>
-  </div>
-</div>
 
 <script src="/chrome-bg.js"></script>
 </body>
