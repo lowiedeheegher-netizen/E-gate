@@ -60,6 +60,40 @@
 .mini-track{font-size:13px;font-weight:700;color:var(--chrome);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .mini-artist{font-size:11px;color:var(--text-dim)}
 .mini-dl{font-family:var(--font-h);font-size:16px;font-weight:900;color:var(--accent);flex-shrink:0}
+
+/* ── Readability fixes ───────────────────────────────── */
+.hero-section{
+  background:linear-gradient(180deg,rgba(0,0,0,.72) 0%,rgba(0,0,0,.55) 60%,rgba(0,0,0,.4) 100%);
+  border-radius:0 0 24px 24px;
+}
+.hero-h1,.hero-sub,.hero-eyebrow,.hero-note{
+  text-shadow:0 2px 12px rgba(0,0,0,.8);
+}
+.platform-stats{
+  background:rgba(0,0,0,.82);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.ps-lbl{ text-shadow:0 1px 4px rgba(0,0,0,.6); }
+/* All sections get a readable backing */
+.section{
+  background:rgba(0,0,0,.65);
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+  border-radius:16px;
+  padding-left:28px;
+  padding-right:28px;
+}
+.section-title,.section-eyebrow{
+  text-shadow:0 2px 8px rgba(0,0,0,.7);
+}
+/* Footer */
+footer{
+  background:rgba(0,0,0,.85);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+
 footer{border-top:1px solid var(--border);padding:32px 20px;text-align:center}
 .footer-brand{font-size:14px;font-weight:700;letter-spacing:3px;text-transform:uppercase;margin-bottom:12px}
 .footer-links{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-bottom:16px}
